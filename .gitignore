@@ -1,5 +1,9 @@
 
 .vscode
+*.mcd
+*.frag
+*.vert
+*.lua
 bios/*.BIN
 build
 bin
