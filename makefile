@@ -1,13 +1,11 @@
 include setup.mk
 
 # Project target name
-TARGET		= SLUS_034
+TARGET		= OblivionPSX
 
 #EMULATOR
-#EMUBIN = D:\\Games\\Emuladores\\Playstation\\ePSXe.exe
-#EMU_CMD = $(EMUBIN) -nogui -loadbin iso/$(TARGET).34.LastSurvivor.cue
 EMUBIN = D:\\Dev\\DevEngine3D\\pcsx-redux\\pcsx-redux.exe
-EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).34.LastSurvivor.cue
+EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).cue
 
 # Searches for C, C++ and S (assembler) files in local directory
 CFILES		= $(notdir $(wildcard *.c))
@@ -62,7 +60,7 @@ all: $(OFILES) $(UIFILES) $(ENGINEFILES)
 	@mkdir -p $(BIN_FOLDER)
 	$(LD) $(LDFLAGS) $(LIBDIRS) $(OFILES) $(UIFILES) $(ENGINEFILES) $(LIBS)  -o bin/$(TARGET)
 	$(ELF2X) -q $(BIN_FOLDER)/$(TARGET) $(BIN_FOLDER)/$(TARGET).exe
-	$(ELF2X) -q $(BIN_FOLDER)/$(TARGET) $(BIN_FOLDER)/$(TARGET).34
+	$(ELF2X) -q $(BIN_FOLDER)/$(TARGET) $(BIN_FOLDER)/$(TARGET).elf
 
 iso: all
 	@mkdir -p $(ISO_FOLDER)

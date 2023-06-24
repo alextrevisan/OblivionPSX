@@ -21,6 +21,6 @@ LD			= $(GCC_BIN)$(PREFIX)ld
 
 #TOOLS
 
-MKPSXISO_XML= iso_build/LastSurvivor.xml
+MKPSXISO_XML= iso_build/OblivionPSX.xml
 BIN_FOLDER  = bin
 ISO_FOLDER  = iso

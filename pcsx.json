@@ -105,7 +105,7 @@
     "ShowMainVRAMViewer": false,
     "ShowMemcardManager": false,
     "ShowMemoryObserver": false,
-    "ShowMenu": true,
+    "ShowMenu": false,
     "ShowRegisters": false,
     "ShowSIO1": false,
     "ShowTypedDebugger": false,

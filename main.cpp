@@ -14,9 +14,7 @@
 #include "clip.h"
 #include "engine/lookat.h"
 #include "engine/fast_draw_functions.h"
-#include "scenario/meshs/dead_tree.h"
-#include "scenario/levelModel.h"
-#include "scenario/meshs/box_level.h"
+
 #include "engine/TextureManager.h"
 
 #include "engine/tinyphysicsengine.h"
@@ -410,8 +408,8 @@ public:
 
         fps_measure++;
         // Wait for GPU to finish drawing and vertical retrace
-        //DrawSync( 0 );
-        //VSync( 0 );
+        DrawSync( 0 );
+        VSync( 0 );
 
         // Swap buffers
         db_active ^= 1;
@@ -539,51 +537,6 @@ TPE_Vec3 environmentDistance(TPE_Vec3 p, TPE_Unit maxD)
 TPE_Vec3 TPE_neg(TPE_Vec3 v)
 {
     return TPE_vec3(-v.x, -v.y, -v.z);
-}
-
-TPE_Vec3 SDF(TPE_Vec3 p, TPE_Unit maxD)
-{
-    TPE_Unit minDist = TPE_INFINITY;
-    TPE_Vec3 pointToReturn = p;
-    for (int i = 0; i < 1; i++)
-    {
-        const auto triangle0Index = (levelTriangleIndices[i*3])*3;
-        const auto triangle1Index = (levelTriangleIndices[i*3 + 2])*3;
-        const auto triangle2Index = (levelTriangleIndices[i*3 + 1])*3;
-
-
-        const TPE_Vec3 v1{
-            levelVertices[triangle0Index],
-            -levelVertices[triangle0Index+1],
-            levelVertices[triangle0Index+2]};
-
-        const TPE_Vec3 v2{
-            levelVertices[triangle1Index],
-            -levelVertices[triangle1Index+1],
-            levelVertices[triangle1Index+2]};
-        const TPE_Vec3 v3 {
-            levelVertices[triangle2Index],
-            -levelVertices[triangle2Index+1],
-            levelVertices[triangle2Index+2]
-        };
-
-        TPE_Vec3 n = TPE_vec3Cross(TPE_vec3Minus(v2, v1), TPE_vec3Minus(v3, v1));
-        TPE_Unit d = TPE_vec3Dot(n, TPE_vec3Minus(p, v1));
-        if (d < 0) {
-            d = -d;
-            n = TPE_neg(n);
-        }
-        if (d > TPE_F) {
-            TPE_Vec3 closest = TPE_vec3Plus(v1, TPE_vec3Times(n, TPE_vec3Dot(n, TPE_vec3Minus(p, v1)) / TPE_vec3Dot(n, n)));
-            TPE_Unit dist = TPE_LENGTH(TPE_vec3Minus(closest, p));
-            if (dist < minDist) {
-                minDist = dist;
-                pointToReturn = closest;
-            }
-        }
-    }
-    FntPrint(-1, "%d, %d, %d\n", pointToReturn.x, pointToReturn.y, pointToReturn.z);
-    return pointToReturn;
 }
 
 int main()
@@ -927,66 +880,6 @@ void compute_normal(const SVECTOR triangle[3], SVECTOR& normal)
     normal.vx = (nx << 12) / length;
     normal.vy = (ny << 12) / length;
     normal.vz = (nz << 12) / length;
-}
-
-void draw_tree(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
-{
-    int i, p;
-
-    // Object and light matrix for object
-    MATRIX omtx, lmtx;
-
-    // Set object rotation and position
-    RotMatrix(rot, &omtx);
-    TransMatrix(&omtx, pos);
-
-    // Multiply light matrix to object matrix
-    MulMatrix0(&light_mtx, &omtx, &lmtx);
-
-    // Set result to GTE light matrix
-    gte_SetLightMatrix(&lmtx);
-
-    // Composite coordinate matrix transform, so object will be rotated and
-    // positioned relative to camera matrix (mtx), so it'll appear as
-    // world-space relative.
-    CompMatrixLV(mtx, &omtx, &omtx);
-
-    // Save matrix
-    PushMatrix();
-
-    // Set matrices
-    gte_SetRotMatrix(&omtx);
-    gte_SetTransMatrix(&omtx);
-
-    for (int i = 0; i < LEVEL_TRIANGLE_COUNT; i++)
-    {
-        const auto triangle0Index = (levelTriangleIndices[i*3])*3;
-        const auto triangle1Index = (levelTriangleIndices[i*3 + 2])*3;
-        const auto triangle2Index = (levelTriangleIndices[i*3 + 1])*3;
-
-
-        const SVECTOR triangle[3] = {{
-            levelVertices[triangle0Index]>>2,
-            -levelVertices[triangle0Index+1]>>2,
-            levelVertices[triangle0Index+2]>>2},
-            {
-            levelVertices[triangle1Index]>>2,
-            -levelVertices[triangle1Index+1]>>2,
-            levelVertices[triangle1Index+2]>>2},
-            {
-            levelVertices[triangle2Index]>>2,
-            -levelVertices[triangle2Index+1]>>2,
-            levelVertices[triangle2Index+2]>>2},
-        };
-        SVECTOR normal;
-        compute_normal(triangle, normal);
-
-        const CVECTOR colors[] = {127,127,127};
-        graphics->Draw<POLY_F3, true, false, true>(triangle, normal, nullptr, {}, colors);
-    }
-
-    // Restore matrix
-    PopMatrix();
 }
 
 
