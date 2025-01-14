@@ -12,8 +12,8 @@
 		/>
 		
 		<directory_tree>
-			<file name="system.cnf"	type="data"	source="..\iso_build\system.cnf"/>
-			<file name="oblivion.elf"	type="data"	source="..\bin\OblivionPSX.elf"/>
+			<file name="system.cnf"	type="data"	source="system.cnf"/>
+			<file name="oblivion.elf"	type="data"	source="../bin/OblivionPSX.elf"/>
 			
 			<!-- <dir>
 				Specifies a subdirectory to the directory structure. <file> and <dir> elements inside

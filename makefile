@@ -4,8 +4,12 @@ include setup.mk
 TARGET		= OblivionPSX
 
 #EMULATOR
-EMUBIN = D:\\Dev\\DevEngine3D\\pcsx-redux\\pcsx-redux.exe
-EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).cue
+#EMUBIN = D:\\Dev\\DevEngine3D\\pcsx-redux\\pcsx-redux.exe
+#EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).cue
+
+EMUBIN = /Applications/DuckStation.app/Contents/MacOS/DuckStation
+EMU_CMD = $(EMUBIN) -fastboot iso/$(TARGET).cue
+
 
 # Searches for C, C++ and S (assembler) files in local directory
 CFILES		= $(notdir $(wildcard *.c))
@@ -38,7 +42,7 @@ LIBDIRS		+=
 LIBS		= -lpsxgpu_exe_nogprel -lpsxgte_exe_nogprel -lpsxspu_exe_nogprel -lpsxetc_exe_nogprel -lpsxapi_exe_nogprel -lc_exe_nogprel
 
 # C compiler flags
-CFLAGS		= -Wa,--strip-local-absolute -ffreestanding -fno-builtin -nostdlib -fdata-sections -ffunction-sections -fsigned-char -fno-strict-overflow -fdiagnostics-color=always -msoft-float -march=r3000 -mtune=r3000 -mabi=32 -mno-mt -mno-llsc -G8 -fno-pic -mno-abicalls -mgpopt -mno-extern-sdata -O3
+CFLAGS		= -Wa,--strip-local-absolute -ffreestanding -fno-builtin -nostdlib -fdata-sections -ffunction-sections -fsigned-char -fno-strict-overflow -fdiagnostics-color=always -msoft-float -march=r3000 -mtune=r3000 -mabi=32 -mno-mt -mno-llsc -G8 -fno-pic -mno-abicalls -mgpopt -mno-extern-sdata -O3 -I$(PSN00B_INCLUDE)
 # C++ compiler flags
 CPPFLAGS	= $(CFLAGS) -fno-exceptions \
 						-fno-rtti \
@@ -46,7 +50,7 @@ CPPFLAGS	= $(CFLAGS) -fno-exceptions \
 						-fno-threadsafe-statics \
 						-fno-use-cxa-atexit \
 						-Wno-narrowing \
-						-fconcepts-ts \
+						-fconcepts \
 						-std=c++20
 						
 # Assembler flags
@@ -54,7 +58,7 @@ AFLAGS		= -msoft-float
 
 # Linker flags
 LDFLAGS		= -g -Ttext=0x80010000 -gc-sections \
-                        -T $(PSN00B_BASE)/mipsel-none-elf/lib/ldscripts/elf32elmip.x
+                        -T $(PSN00B_LIB)/ldscripts/exe.ld
 
 all: $(OFILES) $(UIFILES) $(ENGINEFILES)
 	@mkdir -p $(BIN_FOLDER)

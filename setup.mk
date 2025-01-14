@@ -1,13 +1,16 @@
 PREFIX = mipsel-none-elf-
 
-PSN00B_BASE	= ../psn00bsdk/
-GCC_BASE	= ../mipsel-none-elf
+PSN00B_LIB	= /usr/local/lib/libpsn00b
+PSN00B_INCLUDE	= /usr/local/include/libpsn00b
+GCC_BASE	= /usr/local/mipsel-none-elf
 
-LIBDIRS		= -L$(PSN00B_BASE)lib/libpsn00b/release
-INCLUDE	 	= -I$(PSN00B_BASE)include/libpsn00b
 
-ELF2X		= $(PSN00B_BASE)bin/elf2x
-MKPSXISO    = $(PSN00B_BASE)bin/mkpsxiso
+
+LIBDIRS		= -L$(PSN00B_LIB)/release
+INCLUDE	 	= -I$(PSN00B_INCLUDE)
+
+ELF2X		= /usr/local/bin/elf2x
+MKPSXISO    = /usr/local/bin/mkpsxiso
 
 
 GCC_BIN		= $(GCC_BASE)/bin/
