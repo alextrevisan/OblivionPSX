@@ -1,9 +1,5 @@
-/*
- * $PSLibId: Run-time Library Release 4.7$
- */
-/*
- * GTE inline functions(Simple)
- */
+/// @brief Rotates and translates a vector
+
 #define gte_RotTransPers(r1,r2,r3,r4,r5)               \
                 {    gte_ldv0(r1);       \
                     gte_rtps();         \

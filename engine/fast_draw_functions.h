@@ -19,6 +19,7 @@ inline void gte_ldv3_f(const VECTOR& v0, const VECTOR& v1, const VECTOR& v2)
     asm volatile ("mtc2 %0, $5\n" :  : "r"(z10): );
 }
 
+/// @brief Loads 3 vectors into the GTE
 inline void gte_ldv3_f(const SVECTOR& v0, const SVECTOR& v1, const SVECTOR& v2)
 {
     const int xy00 = ((v0.vx&0xFFFF)|(v0.vy<<16));
@@ -36,7 +37,7 @@ inline void gte_ldv3_f(const SVECTOR& v0, const SVECTOR& v1, const SVECTOR& v2)
     asm volatile ("mtc2 %0, $5\n" :  : "r"(z10): );
 }
 
-
+/// @brief Loads a single vector into the GTE
 inline void gte_ldv0_f(const VECTOR& v0)
 {
     int xy11 = ((v0.vx&0xFFFF)|(v0.vy<<16));
@@ -45,6 +46,7 @@ inline void gte_ldv0_f(const VECTOR& v0)
     asm volatile ("mtc2 %0, $1\n" : "+r"(z11) : : );   
 }
 
+/// @brief Loads a single vector into the GTE
 inline void gte_ldv0_f(const SVECTOR& v0)
 {
     int xy11 = ((v0.vx&0xFFFF)|(v0.vy<<16));
@@ -55,49 +57,53 @@ inline void gte_ldv0_f(const SVECTOR& v0)
 
 // a few extra macros for faster code, needs testing
 // these don't abuse the stack to store GTE calculation results
+/// @brief Stores the Z value of the GTE
 #define gte_stotz_m( r0 ) __asm__ volatile (    \
     "mfc2   %0, $7;"        \
     : "=r"( r0 )            \
     : )
  
+/// @brief Stores the flag of the GTE
 #define gte_stflg_m( r0 ) __asm__ volatile (    \
     "mfc2   %0, $31;"       \
     : "=r"( r0 )            \
     : )
  
+/// @brief Stores the Z value of the GTE
 #define gte_stopz_m( r0 ) __asm__ volatile (    \
     "mfc2   %0, $24;"       \
     : "=r"( r0 )            \
     : )
  
-// direct access to POLY_GT4.rgb3
+/// @brief Direct access to POLY_GT4.rgb3
 #define gte_strr3_gt4( r0 ) __asm__ volatile (  \
     "swc2   $22, 40( %0 );" \
     :                       \
     : "r"( r0 )             \
     : "memory" )
  
-// direct access to POLY_GT4.xy3
+/// @brief Direct access to POLY_GT4.xy3
 #define gte_stsxy_gt4_3( r0 ) __asm__ volatile (\
     "swc2   $14, 0x2C( %0 )"\
     :                       \
     : "r"( r0 )             \
     : "memory" )
 
-// direct access to POLY_GT4.xy3
+    /// @brief Direct access to POLY_GT4.xy3
 #define gte_stsxy_ft4_3( r0 ) __asm__ volatile (\
     "swc2   $14, 0x20( %0 )"\
     :                       \
     : "r"( r0 )             \
     : "memory" )
 
-// direct access to POLY_GT4.rgb3
+/// @brief Direct access to POLY_GT4.rgb3
 #define gte_strr3_ft4( r0 ) __asm__ volatile (  \
     "swc2   $22, 8( %0 );" \
     :                       \
     : "r"( r0 )             \
     : "memory" )
 
+/// @brief Direct access to POLY_GT4.rgb3   
 #define gte_strgb3_ft4( r0 ) __asm__  (			\
 	"swc2	$20, 4( %0 );"					\
 	:							\

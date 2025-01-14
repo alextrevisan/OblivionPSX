@@ -14,6 +14,7 @@
 #include <Operators.h>
 #include <fast_draw_functions.h>
 
+/// @brief Sets the DQA register
 #define gte_SetDQA( r0 ) __asm__ volatile (		\
 	"addu	$12,$0,%0;"						\
 	"ctc2	$12, $27"					\
@@ -23,6 +24,7 @@
 
 //-----------------------------------------------------------------------------
 
+/// @brief Sets the DQB register
 #define gte_SetDQB( r0 ) __asm__ volatile (		\
 	"addu	$12,$0,%0;"				\
 	"ctc2	$12, $28"					\
@@ -30,6 +32,7 @@
 	: "r"( r0 )             \
 	: "$12"  )
 
+/// @brief Sets the fog near register
 void SetFogNear(long a, long h)
 {
 	//Error division by 0
@@ -42,6 +45,7 @@ void SetFogNear(long a, long h)
 	gte_SetDQB(20971520);
 }
 
+/// @brief Sets the fog near and far registers
 void SetFogNearFar(long fogNear, long fogFar, long h)
 {
 	short delta = fogFar-fogNear;
