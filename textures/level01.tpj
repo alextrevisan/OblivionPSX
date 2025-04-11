@@ -1,0 +1,8 @@
+<tim_project>
+    <properties buffer_res="2" buffer_order="0"/>
+    <tim_group name="global">
+        <tim file="TEXTURES_LVL01.TIM"/>
+        <tim file="SKELETON.TIM"/>
+        <tim file="shaft_effect.tim"/>
+    </tim_group>
+</tim_project>

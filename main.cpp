@@ -7,9 +7,14 @@
 #include <psxetc.h>
 #include <inline_c.h>
 #include <gtemac.h>
+#include "engine/collision/CollisionSolver.h"
+#include "engine/collision/PlaneObject.h"
 
 #include "scenario/meshs/oblivion.h"
+#include "scenario/meshs/skeleton1.h"
+#include "scenario/meshs/skeleton2.h"
 #include "scenario/meshs/lightshaft.h"
+#include "scenario/meshs/plane.h"
 
 #include "clip.h"
 #include "engine/lookat.h"
@@ -17,10 +22,7 @@
 
 #include "engine/TextureManager.h"
 
-#include "engine/tinyphysicsengine.h"
-// OT and Packet Buffer sizes
-#define OT_LEN 4096
-#define PACKET_LEN 32768
+//#define FASTMEM __attribute__((section(".fastmem")))
 
 // Screen resolution
 #define SCREEN_XRES 320
@@ -77,23 +79,19 @@ template <typename T, typename U>
 		static constexpr bool value = true;
 	};
 
-// Double buffer structure
-typedef struct
-{
-    DISPENV disp;        // Display environment
-    DRAWENV draw;        // Drawing environment
-    u_long _orderingTable[OT_LEN];    // Ordering table
-    uint8_t _packetBuffer[PACKET_LEN]; // Packet buffer
-} DB;
-
 extern uint32_t light_shaft_tim[];
 extern uint32_t textures_lvl1_tim[];
+extern uint32_t skeleton_tim[];
 
 TIM_IMAGE light_shaft_texture;
 TIM_IMAGE textures_lvl1_texture;
-
+TIM_IMAGE skeleton_texture;
+int PositionScale = 0;
 constexpr RECT screen_clip{0, 0, SCREEN_XRES, SCREEN_YRES};
-
+uint32_t* getScratchAddr(uint32_t offset = 0)
+{
+    return (uint32_t*)0x1F800000;
+}
 // Pad data buffer
 uint8_t pad_buff[2][34];
 
@@ -114,6 +112,9 @@ SVECTOR cube_verts[] = {
     {100, 100, 100, 0},
     {-100, 100, 100, 0}};
 
+//generate cube_verts2 with twice the height
+
+
 // Cube face normals
 SVECTOR cube_norms[] = {
     {0, 0, -ONE, 0},
@@ -131,6 +132,9 @@ INDEX cube_indices[] = {
     {6, 7, 3, 2},
     {0, 2, 5, 7},
     {3, 1, 6, 4}};
+
+// generate pyramid vertices
+
 
 // Number of faces of cube
 #define CUBE_FACES 6
@@ -171,6 +175,7 @@ MATRIX light_mtx = {
 	: "r"( r0 )             \
 	: "$12"  )
 
+<<<<<<< Updated upstream
 class Graphics
 {
     // Double buffer variables
@@ -503,15 +508,20 @@ public:
 };
 
 // Function declarations
+=======
+// Function declarations
+#include <GraphicsV2.h>
+>>>>>>> Stashed changes
 
 void draw_tree(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
 void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
 void draw_floor(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
-
+void renderPlane(const Vector3& position, const FixedPoint& sizeX, const FixedPoint& sizeZ, const Vector3& rotation);
 Graphics *graphics;
 SVECTOR verts[17][17]; // Vertex array for floor
 int px, py;
 
+<<<<<<< Updated upstream
 template<typename T>
 T abs(T& value)
 {
@@ -535,32 +545,68 @@ TPE_Vec3 environmentDistance(TPE_Vec3 p, TPE_Unit maxD)
 }
 
 TPE_Vec3 TPE_neg(TPE_Vec3 v)
+=======
+PhysicsEnginePSX::PlaneObject ground(
+    Vector3(0,0,0),
+    600,0,-200,
+    1600<<3,
+    800<<3);
+
+PhysicsEnginePSX::PlaneObject walls[] = {
+{Vector3(0, 0, FixedPoint::FromFixedPoint(-32768)), 1400, -400, -200, 800, 800},
+{Vector3(FixedPoint::FromFixedPoint(32768), 0, 0), 300, -400, 200, 600, 800},
+{Vector3(FixedPoint::FromFixedPoint(32768), 0, 0), 1300, -400, 200, 200, 800},
+{Vector3(FixedPoint::FromFixedPoint(32768), 0, 0), 900, -400, 400, 600, 800},
+{Vector3(0, 0, FixedPoint::FromFixedPoint(32768)), 600, -400, 300, 800, 200},
+{Vector3(FixedPoint::FromFixedPoint(0), FixedPoint::FromFixedPoint(0), FixedPoint::FromFixedPoint(-32768)), 1200, -400, 300, 800, 200},
+};
+
+
+PhysicsEnginePSX::SphereObject player(Vector3(FixedPoint{1073},FixedPoint{-320},FixedPoint{-255}), FixedPoint{40});
+
+FixedPoint playerJump = FixedPoint::Zero();
+Vector3 moveSpeed = { FixedPoint(0), FixedPoint(0), FixedPoint(0) };
+VECTOR cam_pos; // Camera position (in fixed point integers)
+bool onGround = false;
+const FixedPoint gravity = FixedPoint::FromFixedPoint(401);
+void ProcessPhysics()
+{
+    player.Acceleration[1] += gravity;
+    player.Velocity[1] += playerJump + moveSpeed[1];
+    playerJump = FixedPoint::Zero();
+
+    player.Velocity[0] += player.Acceleration[0];
+    player.Velocity[1] += player.Acceleration[1];
+    player.Velocity[2] += player.Acceleration[2];
+    player.Position[0] += player.Velocity[0] + moveSpeed[0];  
+    player.Position[1] += player.Velocity[1] + moveSpeed[1];  
+    player.Position[2] += player.Velocity[2] + moveSpeed[2];  
+
+    //onGround = PhysicsEnginePSX::CollisionSolver::ResolveSpherePlaneCollisions(player, wall);
+    for(auto& wall : walls)
+    {
+        onGround |= PhysicsEnginePSX::CollisionSolver::ResolveSpherePlaneCollisions(player, wall);
+    }
+    onGround |= PhysicsEnginePSX::CollisionSolver::ResolveSpherePlaneCollisions(player, ground);
+    cam_pos.vx = player.Position[0].AsFixedPoint();
+    cam_pos.vy = player.Position[1].AsFixedPoint() - (280<<12);
+    cam_pos.vz = player.Position[2].AsFixedPoint();
+}
+
+VECTOR TPE_neg(VECTOR v)
+>>>>>>> Stashed changes
 {
     return TPE_vec3(-v.x, -v.y, -v.z);
 }
 
 int main()
 {
-
-    TPE_Body bodies[10];
-    TPE_Joint joints[30];
-    TPE_Connection tpe_connections[60];
-    int jointsUsed = 0, helper_connectionsUsed = 0;
-    TPE_World world;
     int frame = 0;
-    TPE_worldInit(&world, bodies, 0,0);
-    world.environmentFunction = environmentDistance;
 
-
-
-
-
-    TPE_make2Line(joints+jointsUsed, tpe_connections+helper_connectionsUsed, 400, 300);
-
-    TPE_bodyInit(&bodies[0],
-        &joints[jointsUsed], 2,
-        &tpe_connections[helper_connectionsUsed], 1 , 400);
+    //TPE_bodyMoveBy(playerBody,VECTOR(0,(ONE>>2) + 3072,0));
+    //TPE_bodyRotateByAxis(&world.bodies[0],VECTOR(0,0,TPE_F / 4));
     
+<<<<<<< Updated upstream
     jointsUsed += 2;
     helper_connectionsUsed += 1;
 
@@ -577,6 +623,8 @@ int main()
     playerBody->flags |= TPE_BODY_FLAG_ALWAYS_ACTIVE;
     TPE_Unit groundDist = TPE_JOINT_SIZE(playerBody->joints[0]) + 512;
 
+=======
+>>>>>>> Stashed changes
     int i, p, xy_temp;
     
 
@@ -585,7 +633,7 @@ int main()
 
     
 
-    VECTOR cam_pos; // Camera position (in fixed point integers)
+    
     VECTOR cam_rot; // Camera view angle (in fixed point integers)
     int cam_mode;    // Camera mode (between first-person and look-at)
 
@@ -602,6 +650,10 @@ int main()
     graphics->init();
 
     TextureManager::LoadTexture(textures_lvl1_tim, textures_lvl1_texture);
+<<<<<<< Updated upstream
+=======
+    TextureManager::LoadTexture(skeleton_tim, skeleton_texture);
+>>>>>>> Stashed changes
     TextureManager::LoadTexture(light_shaft_tim, light_shaft_texture);
 
     // Set coordinates to the vertex array for the floor
@@ -618,8 +670,13 @@ int main()
     }
 
     // Camera default coordinates
+<<<<<<< Updated upstream
     setVector(&cam_pos, 0, ONE * -200, ONE * -0);
     setVector(&cam_rot, 0, 0, 0);
+=======
+    setVector(&cam_pos, 50000, -822272, ONE * -0);
+    setVector(&cam_rot, 0, 1024, 0);
+>>>>>>> Stashed changes
     
     // Main loop
     while (1)
@@ -636,6 +693,7 @@ int main()
         trot.vy = cam_rot.vy >> 12;
         trot.vz = cam_rot.vz >> 12;
 
+<<<<<<< Updated upstream
         TPE_worldStep(&world);
 
         TPE_Vec3 groundPoint = environmentDistance(playerBody->joints[0].position,groundDist);
@@ -660,6 +718,12 @@ int main()
             TPE_bodyApplyGravity(playerBody, 8);
         //TPE_Unit height = TPE_bodyGetCenterOfMass(playerBody).y;
 
+=======
+        
+        //TPE_Unit height = TPE_bodyGetCenterOfMass(playerBody).vy;
+        moveSpeed.x = FixedPoint::Zero();
+        moveSpeed.z = FixedPoint::Zero();
+>>>>>>> Stashed changes
         if (pad->stat == 0)
         {
 
@@ -702,12 +766,28 @@ int main()
 
                 if (!(pad->btn & PAD_CIRCLE))
                 {
+<<<<<<< Updated upstream
                     playerBody->joints[0].velocity[1] = 90;
+=======
+                    if(onGround)
+                        playerJump = FixedPoint(-1);
+                    
+                    //FntPrint(-1, "pulando!\n");
+                    //if(onGround)
+                    //    PositionScale++;
+>>>>>>> Stashed changes
                 }
-
+                if (!(pad->btn & PAD_SQUARE))
+                {
+                    //playerJump = FixedPoint(-10);
+                    //if(onGround)
+                    //    PositionScale--;
+                }
+                FixedPoint playerSpeed = FixedPoint(8);
                 // Movement controls
                 if (!(pad->btn & PAD_TRIANGLE))
                 {
+<<<<<<< Updated upstream
                     playerBody->joints[0].velocity[0] = -TPE_sin(trot.vy>>3)>>3;
                     playerBody->joints[0].velocity[2] = TPE_cos(trot.vy>>3)>>3;
                     // Move forward
@@ -729,6 +809,15 @@ int main()
                     //cam_pos.vx += ((isin(trot.vy) * icos(trot.vx)) >> 12) << 2;
                     //cam_pos.vy -= isin(trot.vx) << 2;
                     //cam_pos.vz -= ((icos(trot.vy) * icos(trot.vx)) >> 12) << 2;
+=======
+                    moveSpeed.x = playerSpeed * FixedPoint::FromFixedPoint(-(isin(trot.vy)));
+                    moveSpeed.z = playerSpeed * FixedPoint::FromFixedPoint(icos(trot.vy));
+                }
+                else if (!(pad->btn & PAD_CROSS))
+                {
+                    moveSpeed.x = playerSpeed * FixedPoint::FromFixedPoint((isin(trot.vy)));
+                    moveSpeed.z = playerSpeed * FixedPoint::FromFixedPoint(-icos(trot.vy));
+>>>>>>> Stashed changes
                 }
 
 
@@ -761,12 +850,16 @@ int main()
 
         }
         
+<<<<<<< Updated upstream
         
         cam_pos.vx = ((playerBody->joints[1].position.x<<10));
         cam_pos.vy = (-(playerBody->joints[1].position.y<<10));
         cam_pos.vz = ((playerBody->joints[1].position.z<<10));
         
 
+=======
+        ProcessPhysics();
+>>>>>>> Stashed changes
         
 
         //Sphere sphere = {{0, 1, 0}, {0, 0, 0}, {0, GRAVITY, 0}, 0.5, 1};
@@ -774,12 +867,20 @@ int main()
         FntPrint(-1, "FPS=%d\n",
                  fps);
         // Print out some info
-        FntPrint(-1, "BUTTONS=%04x\n", pad->btn);
+        /*FntPrint(-1, "BUTTONS=%04x\n", pad->btn);
         FntPrint(-1, "X=%d Y=%d Z=%d\n",
+<<<<<<< Updated upstream
                  cam_pos.vx>>2,
                  cam_pos.vy>>2,
                  cam_pos.vz>>2);
         FntPrint(-1, "RX=%d RY=%d\n",
+=======
+                 cam_pos.vx>>12,
+                 cam_pos.vy>>12,
+                 cam_pos.vz>>12);*/
+        FntPrint(-1, "CIRCLE TO JUMP!");
+        /*FntPrint(-1, "RX=%d RY=%d\n",
+>>>>>>> Stashed changes
                  cam_rot.vx >> 12,
                  cam_rot.vy >> 12);
 
@@ -836,6 +937,13 @@ int main()
         
         //draw_tree(&mtx, &position, &treeRot);
         draw_mybox(&mtx, &position, &treeRot);
+<<<<<<< Updated upstream
+=======
+        //for(int i = 8; i < COLLIDER_SIZE; i++)
+        //{
+        //    draw_collision(&mtx, &treeRot, colliders[i]);
+        //}
+>>>>>>> Stashed changes
         //cam_pos = sphere.position;
         //draw_floor(&mtx, &position, &treeRot);
         // Position the cube going around the floor bouncily
@@ -883,13 +991,12 @@ void compute_normal(const SVECTOR triangle[3], SVECTOR& normal)
 }
 
 
+
 template<typename GeometryType, typename T, bool semiTransparent = false>
 void render3DModel(const T& model, TIM_IMAGE* texture)
 {
-    const auto tri_size = sizeof(model.tris)/sizeof(oblivion::face3);
-    for(int tri = 0; tri < tri_size; ++tri)
+    for(auto triIndex : model.tris)
     {
-        const auto triIndex = model.tris[tri];
         const SVECTOR triangle[3] = {
             model.vertices[triIndex.vertice0],
             model.vertices[triIndex.vertice1],
@@ -899,34 +1006,50 @@ void render3DModel(const T& model, TIM_IMAGE* texture)
         const SVECTOR normal = model.normals[triIndex.normal0];
 		const DVECTOR uvs[] = {model.uvs[triIndex.uv1], model.uvs[triIndex.uv0], model.uvs[triIndex.uv2]};
         const CVECTOR colors[] = {model.colors[triIndex.color1],model.colors[triIndex.color0], model.colors[triIndex.color2]};
-        graphics->Draw<POLY_GT3>(triangle, normal, texture, uvs, colors);
+        graphics->Draw<POLY_GT3>(triangle, normal, texture, uvs, colors, semiTransparent);
     }
-    const auto quad_size = sizeof(model.quads)/sizeof(oblivion::face4);
-    for(int index = 0; index < quad_size; ++index)
+
+    for(auto quadIndex : model.quads)
     {
-        const auto triIndex = model.quads[index];
         const SVECTOR quad[4] = {
-            model.vertices[triIndex.vertice1],
-            model.vertices[triIndex.vertice0],
-            model.vertices[triIndex.vertice2],
-            model.vertices[triIndex.vertice3]
+            model.vertices[quadIndex.vertice1],
+            model.vertices[quadIndex.vertice0],
+            model.vertices[quadIndex.vertice2],
+            model.vertices[quadIndex.vertice3]
         };
 
-        const SVECTOR normal = model.normals[triIndex.normal0];
-        const DVECTOR uvs[] = {model.uvs[triIndex.uv1], model.uvs[triIndex.uv0], model.uvs[triIndex.uv2], model.uvs[triIndex.uv3]};
-        const CVECTOR colors[] = {model.colors[triIndex.color1],model.colors[triIndex.color0], model.colors[triIndex.color2], model.colors[triIndex.color3]};
-        graphics->Draw<GeometryType>(quad, normal, texture, uvs, colors);
+        const SVECTOR normal = model.normals[quadIndex.normal0];
+        const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
+        const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
+        
+        auto pol = graphics->LoadPolyGT4(quad);
+        if(pol == nullptr) continue;
+        graphics->LoadColor(colors);
+        graphics->LoadTexture(texture, uvs);
+        graphics->Enqueue();
     }
 }
 
+<<<<<<< Updated upstream
+=======
+//create a function to multiply VECTOR with SVECTOR
+static constexpr SVECTOR operator*(const VECTOR& v, const SVECTOR& s)
+{
+    return SVECTOR(v.vx * s.vx, v.vy * s.vy, v.vz * s.vz);
+}
+
+
+MATRIX omtx, lmtx;
+POLY_F4 *pol4;
+>>>>>>> Stashed changes
 void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
 {
 
     int i, p;
-    POLY_F4 *pol4;
+    
 
     // Object and light matrix for object
-    MATRIX omtx, lmtx;
+    
 
     // Set object rotation and position
     RotMatrix(rot, &omtx);
@@ -944,7 +1067,7 @@ void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
     CompMatrixLV(mtx, &omtx, &omtx);
 
     // Save matrix
-    PushMatrix();
+    
 
     // Set matrices
     gte_SetRotMatrix(&omtx);
@@ -952,8 +1075,63 @@ void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
 
     //constexpr oblivion mybox;
     render3DModel<POLY_GT4>(oblivion{}, &textures_lvl1_texture);
+<<<<<<< Updated upstream
     render3DModel<POLY_GT4>(lightshaft{}, &light_shaft_texture);
+=======
+    render3DModel<POLY_GT4>(skeleton1{}, &skeleton_texture);
+    render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
+    render3DModel<POLY_FT4, lightshaft, true>(lightshaft{}, &light_shaft_texture);
+    //renderPlane(ground.Position,ground.SizeX, ground.SizeZ, {});
+    /*for(auto& wall : walls)
+    {
+        renderPlane(wall.Position,wall.MaxX - wall.MinX, wall.MaxZ - wall.MinZ, wall.Rotation);
+        FntPrint(-1, "x=%d | z=%d\n", (wall.MaxX - wall.MinX).AsInt(), (wall.MaxZ - wall.MinZ).AsInt());
+    }*/
+    //render3DModel<POLY_GT4>(lightshaft{}, &light_shaft_texture);
+    //drawAABox(collider);
+>>>>>>> Stashed changes
     // Restore matrix
+    
+}
+
+void renderPlane(const Vector3& position, const FixedPoint& sizeX, const FixedPoint& sizeZ, const Vector3& rotation)
+{
+    
+    MATRIX mtx;
+    VECTOR pos{position.x.AsInt(), position.y.AsInt() , position.z.AsInt()};
+    
+    
+    SVECTOR rot{rotation.x.AsFixedPoint()>>5, rotation.y.AsFixedPoint()>>5, rotation.z.AsFixedPoint()>>5};
+    
+    //>>8 because of the size of the plane (256x256)
+    VECTOR scale{sizeX.AsFixedPoint()>>8, 4096, sizeZ.AsFixedPoint()>>8};
+
+    RotMatrix(&rot, &mtx);
+    ScaleMatrix(&mtx, &scale);    
+    TransMatrix(&mtx, &pos);
+
+    CompMatrixLV(&omtx, &mtx, &mtx);
+
+    gte_SetRotMatrix(&mtx);
+    gte_SetTransMatrix(&mtx);
+
+
+    const plane model;
+    for(auto quadIndex : model.quads)
+    {
+        const SVECTOR quad[4] = {
+            model.vertices[quadIndex.vertice1],
+            model.vertices[quadIndex.vertice0],
+            model.vertices[quadIndex.vertice2],
+            model.vertices[quadIndex.vertice3]
+        };
+
+        const SVECTOR normal = model.normals[quadIndex.normal0];
+        const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
+        const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
+        
+        graphics->Draw<POLY_F4>(quad, normal, nullptr, uvs, colors);
+    }
     PopMatrix();
 }
 

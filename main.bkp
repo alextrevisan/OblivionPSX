@@ -1,0 +1,766 @@
+#include <sys/types.h>
+#include <stdio.h>
+#include <psxgpu.h>
+#include <psxgte.h>
+#include <psxpad.h>
+#include <psxapi.h>
+#include <psxetc.h>
+#include <inline_c.h>
+#include <gtemac.h>
+#include "engine/collision/CollisionSolver.h"
+#include "engine/collision/PlaneObject.h"
+
+#include "scenario/meshs/oblivion.h"
+#include "scenario/meshs/skeleton1.h"
+#include "scenario/meshs/skeleton2.h"
+#include "scenario/meshs/lightshaft.h"
+
+#include "clip.h"
+#include "engine/lookat.h"
+#include "engine/fast_draw_functions.h"
+
+#include "engine/TextureManager.h"
+
+#include "engine/tinyphysicsengine.h"
+
+//#define FASTMEM __attribute__((section(".fastmem")))
+
+// Screen resolution
+#define SCREEN_XRES 320
+#define SCREEN_YRES 240
+
+// Screen center position
+#define CENTERX SCREEN_XRES >> 1
+#define CENTERY SCREEN_YRES >> 1
+#define gte_getir1( )			\
+	({ long r0;					\
+	__asm__ volatile (			\
+	"mfc2	%0, $9;"			\
+	: "=r"( r0 )				\
+	:							\
+	);							\
+	r0; })
+
+/* Get the IR3 register from the GTE */
+#define gte_getir3( )			\
+	({ long r0;					\
+	__asm__ volatile (			\
+	"mfc2	%0, $11;"			\
+	: "=r"( r0 )				\
+	:							\
+	);							\
+	r0; })
+namespace
+{
+    int fps;
+    int fps_counter;
+    int fps_measure;
+
+    void vsync_cb(void)
+    {
+        fps_counter++;
+        if (fps_counter >= 60)
+        {
+            fps = fps_measure;
+            fps_measure = 0;
+            fps_counter = 0;
+        }
+    }
+} // namespace
+
+template <typename T, typename U>
+	struct is_same
+	{
+		static constexpr bool value = false;
+	};
+
+	template <typename T>
+	struct is_same<T, T> //specialization
+	{
+		static constexpr bool value = true;
+	};
+
+extern uint32_t light_shaft_tim[];
+extern uint32_t textures_lvl1_tim[];
+extern uint32_t skeleton_tim[];
+
+TIM_IMAGE light_shaft_texture;
+TIM_IMAGE textures_lvl1_texture;
+TIM_IMAGE skeleton_texture;
+
+constexpr RECT screen_clip{0, 0, SCREEN_XRES, SCREEN_YRES};
+uint32_t* getScratchAddr(uint32_t offset = 0)
+{
+    return (uint32_t*)0x1F800000;
+}
+// Pad data buffer
+uint8_t pad_buff[2][34];
+
+// For easier handling of vertex indexes
+typedef struct
+{
+    short v0, v1, v2, v3;
+} INDEX;
+
+// Cube vertices
+SVECTOR cube_verts[] = {
+    {-1, -1, -1, 0},
+    {1, -1, -1, 0},
+    {-1, 1, -1, 0},
+    {1, 1, -1, 0},
+    {1, -1, 1, 0},
+    {-1, -1, 1, 0},
+    {1, 1, 1, 0},
+    {-1, 1, 1, 0}};
+
+//generate cube_verts2 with twice the height
+
+
+// Cube face normals
+SVECTOR cube_norms[] = {
+    {0, 0, -ONE, 0},
+    {0, 0, ONE, 0},
+    {0, -ONE, 0, 0},
+    {0, ONE, 0, 0},
+    {-ONE, 0, 0, 0},
+    {ONE, 0, 0, 0}};
+
+// Cube vertex indices
+INDEX cube_indices[] = {
+    {0, 1, 2, 3},
+    {4, 5, 6, 7},
+    {5, 4, 0, 1},
+    {6, 7, 3, 2},
+    {0, 2, 5, 7},
+    {3, 1, 6, 4}};
+
+// generate pyramid vertices
+
+
+// Number of faces of cube
+#define CUBE_FACES 6
+
+// Light color matrix
+// Each column represents the color matrix of each light source and is
+// used as material color when using gte_ncs() or multiplied by a
+// source color when using gte_nccs(). 4096 is 1.0 in this matrix
+// A column of zeroes effectively disables the light source.
+MATRIX color_mtx = {
+    ONE>>1, 0, 0, // Red
+    ONE>>1, 0, 0,   // Green
+    ONE>>1, 0, 0  // Blue
+};
+
+// Light matrix
+// Each row represents a vector direction of each light source.
+// An entire row of zeroes effectively disables the light source.
+MATRIX light_mtx = {
+    /* X,  Y,  Z */
+    -4058, -2048, -2048,
+    0, 0, 0,
+    0, 0, 0};
+
+#define gte_SetDQA( r0 ) __asm__ volatile (		\
+	"addu	$12,$0,%0;"						\
+	"ctc2	$12, $27"					\
+	:							\
+	: "r"( r0 ) 			\
+	: "a0" )
+
+//-----------------------------------------------------------------------------
+
+#define gte_SetDQB( r0 ) __asm__ volatile (		\
+	"addu	$12,$0,%0;"				\
+	"ctc2	$12, $28"					\
+	:							\
+	: "r"( r0 )             \
+	: "$12"  )
+
+// Function declarations
+#include <GraphicsV2.h>
+
+struct AABoxCollider
+{
+    VECTOR center;
+    VECTOR size; 
+};
+
+void draw_tree(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
+void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
+void draw_collision(MATRIX *mtx, SVECTOR *rot, const AABoxCollider& collider);
+void draw_floor(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
+
+Graphics *graphics;
+SVECTOR verts[17][17]; // Vertex array for floor
+int px, py;
+
+
+TPE_Unit elevatorHeight;
+TPE_Unit ramp[6] = { 1600,0, -500,1400, -700,0 };
+TPE_Unit ramp2[6] = { 2000,-5000, 1500,1700, -5000,-500 };
+
+constexpr VECTOR aabbMin{-625<<2, 0, -625<<2};
+constexpr VECTOR aabbMax{625<<2, 625<<2, 625<<2};
+constexpr int convertValue(int input)
+{
+    return input;
+}
+
+VECTOR TPE_envPlane(VECTOR point, VECTOR center, VECTOR normal, TPE_Unit width, TPE_Unit heigth)
+{
+    VECTOR point2 = TPE_vec3Minus(point,center);
+    if(point2.vz > width)
+        return {0,0,0};
+    if(point2.vz < -width)
+        return {0,0,0};
+    return TPE_envHalfPlane(point,center,normal);
+}
+constexpr int COLLIDER_SIZE = 7;
+
+constexpr AABoxCollider colliders[COLLIDER_SIZE] = {
+ 
+//{VECTOR(convertValue(277),convertValue(46247),convertValue(0)), VECTOR(convertValue(512), convertValue(500000), convertValue(903384))},
+{VECTOR(convertValue(-679330),convertValue(340000),convertValue(0)), VECTOR(convertValue(50000), convertValue(500000), convertValue(903384))},
+{VECTOR(convertValue(801173),convertValue(339994),convertValue(557448)), VECTOR(convertValue(150000), convertValue(500000), convertValue(150000))},
+{VECTOR(convertValue(-4165),convertValue(339994),convertValue(557448)), VECTOR(convertValue(150000), convertValue(500000), convertValue(150000))},
+{VECTOR(convertValue(-238910),convertValue(339994),convertValue(378098)), VECTOR(convertValue(150000), convertValue(500000), convertValue(150000))},
+{VECTOR(convertValue(-542734),convertValue(339994),convertValue(538216)), VECTOR(convertValue(193700), convertValue(500000), convertValue(150000))},
+{VECTOR(convertValue(401200),convertValue(340000),convertValue(731046)), VECTOR(convertValue(350000), convertValue(500000), convertValue(100000))},
+{VECTOR(convertValue(1437376),convertValue(340000),convertValue(-1171255)), VECTOR(convertValue(1398519), convertValue(500000), convertValue(100000))},
+};
+VECTOR environmentDistance(VECTOR p, TPE_Unit maxD)
+{
+  // manually created environment to match the 3D model of it
+  TPE_ENV_START( TPE_envGround(p,0),p )
+  //for(int  i = 0; i < COLLIDER_SIZE; ++i)
+  {
+    //TPE_ENV_NEXT(TPE_envAABox(p, colliders[i].center,colliders[i].size), p);
+  }
+  //TPE_ENV_NEXT(TPE_envPlane(p,VECTOR(convertValue(0),0,0),VECTOR(-TPE_FRACTIONS_PER_UNIT,0,0), 2000, 2000), p)
+  //TPE_ENV_NEXT(TPE_envAABoxInsideAA(p,aabbMin,aabbMax), p)
+  TPE_ENV_END
+}
+
+
+PhysicsEnginePSX::PlaneObject ground(
+    Vector3(FixedPoint{0},FixedPoint{-1},FixedPoint{0}),
+    0,0,0,
+    100,
+    100);
+
+PhysicsEnginePSX::SphereObject player(Vector3(FixedPoint{0},FixedPoint{-1},FixedPoint{0}), FixedPoint{1});
+
+VECTOR TPE_neg(VECTOR v)
+{
+    return VECTOR(-v.vx, -v.vy, -v.vz);
+}
+
+int main()
+{
+
+    TPE_Body bodies[10];
+    TPE_Joint joints[30];
+    TPE_Connection tpe_connections[60];
+    int jointsUsed = 0, helper_connectionsUsed = 0;
+    TPE_World world;
+    int frame = 0;
+    TPE_worldInit(&world, bodies, 0,0);
+    world.environmentFunction = environmentDistance;
+
+
+
+
+
+    TPE_make2Line(joints+jointsUsed, tpe_connections+helper_connectionsUsed, 400, 300);
+
+    TPE_bodyInit(&bodies[0],
+        &joints[jointsUsed], 2,
+        &tpe_connections[helper_connectionsUsed], 1 , 400);
+    
+    jointsUsed += 2;
+    helper_connectionsUsed += 1;
+
+    world.bodyCount++;
+
+    TPE_Body *playerBody = 0;
+    playerBody = &(world.bodies[0]);
+
+    TPE_bodyMoveBy(playerBody,VECTOR(0,(ONE>>2) + 3072,0));
+    TPE_bodyRotateByAxis(&world.bodies[0],VECTOR(0,0,TPE_F / 4));
+    playerBody->elasticity = 0;
+    playerBody->friction = 0;   
+    playerBody->flags |= TPE_BODY_FLAG_NONROTATING; // make it always upright
+    playerBody->flags |= TPE_BODY_FLAG_ALWAYS_ACTIVE;
+    TPE_Unit groundDist = TPE_JOINT_SIZE(playerBody->joints[0]) + 2372;
+    TPE_Unit jumpForce = 280;
+    TPE_Unit playerSpeed = 2;
+    int i, p, xy_temp;
+    
+
+    SVECTOR rot; // Rotation vector for cube
+    VECTOR pos;     // Position vector for cube
+
+    
+
+    VECTOR cam_pos; // Camera position (in fixed point integers)
+    VECTOR cam_rot; // Camera view angle (in fixed point integers)
+    int cam_mode;    // Camera mode (between first-person and look-at)
+
+    VECTOR tpos;      // Translation value for matrix calculations
+    SVECTOR trot;      // Rotation value for matrix calculations
+    MATRIX mtx, lmtx; // Rotation matrices for geometry and lighting
+
+    PADTYPE *pad; // Pad structure pointer for parsing controller
+
+    POLY_F4 *pol4; // Flat shaded quad primitive pointer
+
+    graphics = new Graphics();
+    // Init graphics and GTE
+    graphics->init();
+
+    TextureManager::LoadTexture(textures_lvl1_tim, textures_lvl1_texture);
+    TextureManager::LoadTexture(skeleton_tim, skeleton_texture);
+    //TextureManager::LoadTexture(light_shaft_tim, light_shaft_texture);
+
+    // Set coordinates to the vertex array for the floor
+    for (py = 0; py < 17; py++)
+    {
+        for (px = 0; px < 17; px++)
+        {
+
+            setVector(&verts[py][px],
+                      (100 * (px - 8)) - 50,
+                      0,
+                      (100 * (py - 8)) - 50);
+        }
+    }
+
+    // Camera default coordinates
+    setVector(&cam_pos, 50000, -822272, ONE * -0);
+    setVector(&cam_rot, 0, 0, 0);
+    
+    // Main loop
+    while (1)
+    {
+
+        // Set pad buffer data to pad pointer
+        pad = (PADTYPE *)&pad_buff[0][0];
+
+        // Parse controller input
+        cam_mode = 0;
+
+        // Divide out fractions of camera rotation
+        trot.vx = cam_rot.vx >> 12;
+        trot.vy = cam_rot.vy >> 12;
+        trot.vz = cam_rot.vz >> 12;
+
+        TPE_worldStep(&world);
+
+        VECTOR groundPoint = environmentDistance(playerBody->joints[0].position,groundDist);
+
+        bool onGround = (playerBody->flags & TPE_BODY_FLAG_DEACTIVATED) ||
+        (TPE_DISTANCE(playerBody->joints[0].position,groundPoint)
+        <= groundDist && groundPoint.vy < playerBody->joints[0].position.vy - groundDist);
+
+        if (!onGround)
+        {
+            /* it's possible that the closest point is e.g. was a perpend wall so also
+                additionally check directly below */
+
+            onGround = TPE_DISTANCE( playerBody->joints[0].position,
+            TPE_castEnvironmentRay(playerBody->joints[0].position,
+            VECTOR(0,-1 * TPE_F,0),world.environmentFunction, 
+            128,512,512)) <= groundDist;
+        }
+
+        TPE_bodyMultiplyNetSpeed(&world.bodies[0],onGround ? 2048 : 4096);
+        if(!onGround)
+            TPE_bodyApplyGravity(playerBody, 25);
+        //TPE_Unit height = TPE_bodyGetCenterOfMass(playerBody).vy;
+
+        if (pad->stat == 0)
+        {
+
+            // For digital pad, dual-analog and dual-shock
+            if ((pad->type == 0x4) || (pad->type == 0x5) || (pad->type == 0x7))
+            {
+
+                // The button status bits are inverted,
+                // so 0 means pressed in this case
+
+                // Look controls
+                if (!(pad->btn & PAD_UP))
+                {
+
+                    // Look up
+                    cam_rot.vx -= ONE * 16;
+                }
+                else if (!(pad->btn & PAD_DOWN))
+                {
+
+                    // Look down
+                    cam_rot.vx += ONE * 16;
+                }
+
+                if (!(pad->btn & PAD_LEFT))
+                {
+
+                    // Look left
+                    cam_rot.vy += ONE * 16;
+                }
+                else if (!(pad->btn & PAD_RIGHT))
+                {
+
+                    // Look right
+                    cam_rot.vy -= ONE * 16;
+                }
+
+                    
+                    
+                static bool applyJump = false;
+                if (!(pad->btn & PAD_CIRCLE))
+                {
+                    if(onGround)
+                        //TPE_bodyApplyGravity(playerBody, -160);
+                        playerBody->joints[0].velocity[1] = jumpForce;
+                }
+
+                // Movement controls
+                if (!(pad->btn & PAD_TRIANGLE))
+                {
+                    
+                    playerBody->joints[0].velocity[0] = -(isin(trot.vy)) * playerSpeed;
+                    playerBody->joints[0].velocity[2] = icos(trot.vy) * playerSpeed;
+                    // Move forward
+                    //sphere.velocity.vx = -((isin(trot.vy) * icos(trot.vx)) >> 12) ;
+                    //sphere.velocity.vy = ((isin(trot.vy) * icos(trot.vx)) >> 12) ;
+                    //sphere.velocity.vz = ((icos(trot.vy) * icos(trot.vx)) >> 12) ;
+                    //cam_pos.vx -= ((isin(trot.vy) * icos(trot.vx)) >> 12) ;
+                    //cam_pos.vy += isin(trot.vx) ;
+                    //cam_pos.vz += ((icos(trot.vy) * icos(trot.vx)) >> 12) ;
+                }
+                else if (!(pad->btn & PAD_CROSS))
+                {
+                    playerBody->joints[0].velocity[0] = (isin(trot.vy)) * playerSpeed;
+                    playerBody->joints[0].velocity[2] = -(icos(trot.vy)) * playerSpeed;
+                    //sphere.velocity.vx = ((isin(trot.vy) * icos(trot.vx)) >> 12) ;
+                    //sphere.velocity.vy = ((isin(trot.vy) * icos(trot.vx)) >> 12) ;
+                    //sphere.velocity.vz = -((icos(trot.vy) * icos(trot.vx)) >> 12) ;
+                    // Move backward
+                    //cam_pos.vx += ((isin(trot.vy) * icos(trot.vx)) >> 12) ;
+                    //cam_pos.vy -= isin(trot.vx) ;
+                    //cam_pos.vz -= ((icos(trot.vy) * icos(trot.vx)) >> 12) ;
+                }
+
+
+
+                if (!(pad->btn & PAD_R1))
+                {
+
+                    // Slide up
+                    cam_pos.vx -= ((isin(trot.vy) * isin(trot.vx)) >> 12) ;
+                    cam_pos.vy -= icos(trot.vx) ;
+                    cam_pos.vz += ((icos(trot.vy) * isin(trot.vx)) >> 12) ;
+                }
+
+                if (!(pad->btn & PAD_R2))
+                {
+
+                    // Slide down
+                    cam_pos.vx += ((isin(trot.vy) * isin(trot.vx)) >> 12) ;
+                    cam_pos.vy += icos(trot.vx) ;
+                    cam_pos.vz -= ((icos(trot.vy) * isin(trot.vx)) >> 12) ;
+                }
+
+                // Look at cube
+                if (!(pad->btn & PAD_L1))
+                {
+
+                    cam_mode = 1;
+                }
+            }
+
+        }
+        
+        
+        cam_pos.vx = ((playerBody->joints[1].position.vx)<<2);
+        cam_pos.vy = (-(playerBody->joints[1].position.vy)<<9);
+        cam_pos.vz = ((playerBody->joints[1].position.vz)<<2);
+        
+
+        
+
+        //Sphere sphere = {{0, 1, 0}, {0, 0, 0}, {0, GRAVITY, 0}, 0.5, 1};
+        
+        FntPrint(-1, "FPS=%d\n",
+                 fps);
+        // Print out some info
+        FntPrint(-1, "BUTTONS=%04x\n", pad->btn);
+        FntPrint(-1, "X=%d Y=%d Z=%d\n",
+                 cam_pos.vx,
+                 cam_pos.vy,
+                 cam_pos.vz);
+        /*FntPrint(-1, "RX=%d RY=%d\n",
+                 cam_rot.vx >> 12,
+                 cam_rot.vy >> 12);
+*/
+        
+        // First-person camera mode
+        if (cam_mode == 0)
+        {
+
+            // Set rotation to the matrix
+            RotMatrix(&trot, &mtx);
+
+            // Divide out the fractions of camera coordinates and invert
+            // the sign, so camera coordinates will line up to world
+            // (or geometry) coordinates
+            tpos.vx = -cam_pos.vx >> 12;
+            tpos.vy = -cam_pos.vy >> 12;
+            tpos.vz = -cam_pos.vz >> 12;
+
+            // Apply rotation of matrix to translation value to achieve a
+            // first person perspective
+            ApplyMatrixLV(&mtx, &tpos, &tpos);
+
+            // Set translation matrix
+            TransMatrix(&mtx, &tpos);
+
+            // Tracking mode
+        }
+        else
+        {
+
+            // Vector that defines the 'up' direction of the camera
+            SVECTOR up = {0, -ONE, 0};
+
+            // Divide out fractions of camera coordinates
+            tpos.vx = cam_pos.vx >> 12;
+            tpos.vy = cam_pos.vy >> 12;
+            tpos.vz = cam_pos.vz >> 12;
+
+            // Look at the cube
+            LookAt(&tpos, &pos, &up, &mtx);
+        }
+
+        // Set rotation and translation matrix
+        gte_SetRotMatrix(&mtx);
+        gte_SetTransMatrix(&mtx);
+
+        // Draw the floor
+
+        
+
+        // Update nextpri variable (very important)
+        //db_nextpri = (char *)pol4;
+        VECTOR position = {0,0,0};
+        SVECTOR treeRot{0,0,0};
+        
+        //draw_tree(&mtx, &position, &treeRot);
+        draw_mybox(&mtx, &position, &treeRot);
+        //for(int i = 8; i < COLLIDER_SIZE; i++)
+        //{
+        //    draw_collision(&mtx, &treeRot, colliders[i]);
+        //}
+        //cam_pos = sphere.position;
+        //draw_floor(&mtx, &position, &treeRot);
+        // Position the cube going around the floor bouncily
+        setVector(&pos,
+                  isin(rot.vy) >> 4,
+                  -300 + (isin(rot.vy ) >> 5),
+                  icos(rot.vy) >> 3);
+
+        // Sort cube
+        
+
+        // Make the cube SPEEN
+        rot.vx += 8;
+        rot.vy += 8;
+
+        // Flush text to drawing area
+        FntFlush(-1);
+
+        // Swap buffers and draw the primitives
+        graphics->display();
+    }
+
+    return 0;
+}
+
+
+void compute_normal(const SVECTOR triangle[3], SVECTOR& normal)
+{
+    // Compute the cross product of two edges of the triangle
+    int vx1 = triangle[1].vx - triangle[0].vx;
+    int vy1 = triangle[1].vy - triangle[0].vy;
+    int vz1 = triangle[1].vz - triangle[0].vz;
+    int vx2 = triangle[2].vx - triangle[0].vx;
+    int vy2 = triangle[2].vy - triangle[0].vy;
+    int vz2 = triangle[2].vz - triangle[0].vz;
+    int nx = (vy1 * vz2) - (vz1 * vy2);
+    int ny = (vz1 * vx2) - (vx1 * vz2);
+    int nz = (vx1 * vy2) - (vy1 * vx2);
+
+    // Normalize the result
+    int length = SquareRoot0((nx * nx) + (ny * ny) + (nz * nz));
+    normal.vx = (nx << 12) / length;
+    normal.vy = (ny << 12) / length;
+    normal.vz = (nz << 12) / length;
+}
+
+
+
+template<typename GeometryType, typename T, bool semiTransparent = false>
+void render3DModel(const T& model, TIM_IMAGE* texture)
+{
+    for(auto triIndex : model.tris)
+    {
+        const SVECTOR triangle[3] = {
+            model.vertices[triIndex.vertice0],
+            model.vertices[triIndex.vertice1],
+            model.vertices[triIndex.vertice2]
+        };
+
+        const SVECTOR normal = model.normals[triIndex.normal0];
+		const DVECTOR uvs[] = {model.uvs[triIndex.uv1], model.uvs[triIndex.uv0], model.uvs[triIndex.uv2]};
+        const CVECTOR colors[] = {model.colors[triIndex.color1],model.colors[triIndex.color0], model.colors[triIndex.color2]};
+        graphics->Draw<POLY_GT3>(triangle, normal, texture, uvs, colors);
+    }
+
+    for(auto quadIndex : model.quads)
+    {
+        const SVECTOR quad[4] = {
+            model.vertices[quadIndex.vertice1],
+            model.vertices[quadIndex.vertice0],
+            model.vertices[quadIndex.vertice2],
+            model.vertices[quadIndex.vertice3]
+        };
+
+        const SVECTOR normal = model.normals[quadIndex.normal0];
+        const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
+        const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
+        
+        auto pol = graphics->LoadPolyGT4(quad);
+        if(pol == nullptr) continue;
+        graphics->LoadColor(colors);
+        graphics->LoadTexture(texture, uvs);
+        graphics->Enqueue();
+    }
+}
+
+//create a function to multiply VECTOR with SVECTOR
+static constexpr SVECTOR operator*(const VECTOR& v, const SVECTOR& s)
+{
+    return SVECTOR(v.vx * s.vx, v.vy * s.vy, v.vz * s.vz);
+}
+
+
+void drawAABox(const AABoxCollider& collider)
+{
+    const VECTOR size = {collider.size.vx>>2, collider.size.vy>>2, collider.size.vz>>2};
+
+    for(int i = 0; i < CUBE_FACES; ++i)
+    {
+        const auto cubeV0 = cube_verts[cube_indices[i].v0];
+        const auto cubeV1 = cube_verts[cube_indices[i].v1];
+        const auto cubeV2 = cube_verts[cube_indices[i].v2];
+        const auto cubeV3 = cube_verts[cube_indices[i].v3];
+        
+        const auto cubeV0s = size * cubeV0;
+        const auto cubeV1s = size * cubeV1;
+        const auto cubeV2s = size * cubeV2;
+        const auto cubeV3s = size * cubeV3;
+
+        const SVECTOR quad[4] = { cubeV0s, cubeV1s, cubeV2s, cubeV3s };
+
+        const SVECTOR normal = cube_norms[i];
+        const CVECTOR colors[] = {127,127,127};
+        graphics->Draw<POLY_F4>(quad, normal, nullptr, {}, colors);
+    }
+}
+
+void draw_collision(MATRIX *mtx, SVECTOR *rot, const AABoxCollider& localCollider)
+{
+
+    int i, p;
+    MATRIX omtx;
+    int32_t x = localCollider.size.vx;
+    int32_t y = localCollider.size.vy;
+    int32_t z = localCollider.size.vz;
+    const int32_t size = 100;
+    VECTOR scale = {x*ONE, y*ONE, z*ONE};
+    VECTOR position = {localCollider.center.vx>>2, -localCollider.center.vy>>2, localCollider.center.vz>>2};
+    // Set object rotation and position
+    RotMatrix(rot, &omtx);
+    TransMatrix(&omtx, &position);
+
+    //ScaleMatrix(&omtx, &scale);
+    // Multiply light matrix to object matrix
+    //MulMatrix0(&light_mtx, &omtx, &lmtx);
+
+    // Set result to GTE light matrix
+    //gte_SetLightMatrix(&lmtx);
+
+    // Composite coordinate matrix transform, so object will be rotated and
+    // positioned relative to camera matrix (mtx), so it'll appear as
+    // world-space relative.
+    CompMatrixLV(mtx, &omtx, &omtx);
+
+    // Save matrix
+    PushMatrix();
+
+    // Set matrices
+    gte_SetRotMatrix(&omtx);
+    gte_SetTransMatrix(&omtx);
+
+    //constexpr oblivion mybox;
+    //render3DModel<POLY_GT4>(oblivion{}, &textures_lvl1_texture);
+    //render3DModel<POLY_GT4>(lightshaft{}, &light_shaft_texture);
+    drawAABox(localCollider);
+    // Restore matrix
+    PopMatrix();
+}
+
+MATRIX omtx, lmtx;
+POLY_F4 *pol4;
+void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
+{
+
+    int i, p;
+    
+
+    // Object and light matrix for object
+    
+
+    // Set object rotation and position
+    RotMatrix(rot, &omtx);
+    TransMatrix(&omtx, pos);
+
+    // Multiply light matrix to object matrix
+    //MulMatrix0(&light_mtx, &omtx, &lmtx);
+
+    // Set result to GTE light matrix
+    //gte_SetLightMatrix(&lmtx);
+
+    // Composite coordinate matrix transform, so object will be rotated and
+    // positioned relative to camera matrix (mtx), so it'll appear as
+    // world-space relative.
+    CompMatrixLV(mtx, &omtx, &omtx);
+
+    // Save matrix
+    PushMatrix();
+
+    // Set matrices
+    gte_SetRotMatrix(&omtx);
+    gte_SetTransMatrix(&omtx);
+
+    //constexpr oblivion mybox;
+    render3DModel<POLY_GT4>(oblivion{}, &textures_lvl1_texture);
+    render3DModel<POLY_GT4>(skeleton1{}, &skeleton_texture);
+    render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
+    //render3DModel<POLY_GT4>(lightshaft{}, &light_shaft_texture);
+    //drawAABox(collider);
+    // Restore matrix
+    PopMatrix();
+}
+

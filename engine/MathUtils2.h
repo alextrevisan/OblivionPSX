@@ -3,7 +3,7 @@
 
 #include <psxgte.h>
 
-class MathUtils
+class MathUtils2
 {
 public:
     static SVECTOR cross(const SVECTOR& left, const SVECTOR& right)
