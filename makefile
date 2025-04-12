@@ -4,10 +4,7 @@ include setup.mk
 TARGET		= OblivionPSX
 
 #EMULATOR
-<<<<<<< Updated upstream
-EMUBIN = D:\\Dev\\DevEngine3D\\pcsx-redux\\pcsx-redux.exe
-EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).cue
-=======
+
 #EMUBIN = D:\\Dev\\DevEngine3D\\pcsx-redux\\pcsx-redux.exe
 #EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).cue
 
@@ -19,7 +16,6 @@ EMU_CMD = $(EMUBIN) -fastboot iso/$(TARGET).cue
 
 #EMU_CMD = $(NOPS) -exe bin/$(TARGET).exe com5 -fast
 #EMU_CMD = $(MCOMMS) -dev com5 run bin/$(TARGET).exe
->>>>>>> Stashed changes
 
 # Searches for C, C++ and S (assembler) files in local directory
 CFILES		= $(notdir $(wildcard *.c))
@@ -52,9 +48,7 @@ LIBDIRS		+=
 LIBS		= -lpsxgpu_exe_nogprel -lpsxgte_exe_nogprel -lpsxspu_exe_nogprel -lpsxetc_exe_nogprel -lpsxapi_exe_nogprel -lc_exe_nogprel
 
 # C compiler flags
-<<<<<<< Updated upstream
-CFLAGS		= -Wa,--strip-local-absolute -ffreestanding -fno-builtin -nostdlib -fdata-sections -ffunction-sections -fsigned-char -fno-strict-overflow -fdiagnostics-color=always -msoft-float -march=r3000 -mtune=r3000 -mabi=32 -mno-mt -mno-llsc -G8 -fno-pic -mno-abicalls -mgpopt -mno-extern-sdata -O3
-=======
+
 CFLAGS		= -Wa,--strip-local-absolute \
 			  -ffreestanding \
 			  -fno-builtin \
@@ -77,7 +71,7 @@ CFLAGS		= -Wa,--strip-local-absolute \
 			  -mno-extern-sdata \
 			  -msoft-float \
 			  -O3
->>>>>>> Stashed changes
+
 # C++ compiler flags
 CPPFLAGS	= $(CFLAGS) -fno-exceptions \
 						-fno-rtti \

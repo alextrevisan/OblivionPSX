@@ -10,12 +10,35 @@
 #include <gtemac.h>
 #include <stdlib.h>
 #include <string.h>
+#include "fast_draw_functions.h"
+#include "Util.h"
+#include "clip.h"
+#include <cstdint>
+//#include "ui.h"
 //int32_t* _scratchData = reinterpret_cast<int32_t*>(0x1F800000);
 //#define getScratchAddr(offset)  ((int32_t *)(_scratchData+(offset)*4))
 // OT and Packet Buffer sizes
 #define OT_LEN 1024
-#define PACKET_LEN 32768*2
-// Double buffer structure
+#define PACKET_LEN 65536*2
+uint8_t pad_buff[2][34];
+namespace
+{
+    int fps;
+    int fps_counter;
+    int fps_measure;
+
+    void vsync_cb(void)
+    {
+        fps_counter++;
+        if (fps_counter >= 60)
+        {
+            fps = fps_measure;
+            fps_measure = 0;
+            fps_counter = 0;
+        }
+    }
+} // namespace
+
 typedef struct
 {
     DISPENV disp;        // Display environment
@@ -23,6 +46,16 @@ typedef struct
     u_long _orderingTable[OT_LEN];    // Ordering table
     uint8_t _packetBuffer[PACKET_LEN]; // Packet buffer
 } DB;
+
+
+
+inline SVECTOR midpoint(const SVECTOR& p1, const SVECTOR& p2) {
+    return {(p1.vx + p2.vx)>>1, (p1.vy + p2.vy)>>1, (p1.vz + p2.vz)>>1};
+}
+inline DVECTOR midpoint_uv(const DVECTOR& uv1, const DVECTOR& uv2) {
+    return {(uv1.vx + uv2.vx) >> 1, (uv1.vy + uv2.vy) >> 1};
+}
+uint16_t primCount = 0;
 class Graphics
 {
     // Double buffer variables
@@ -32,7 +65,7 @@ class Graphics
 
     DISPENV *disp;
     DRAWENV *draw;
-    u_long *_orderingTable;
+    uint32_t *_orderingTable;
     uint8_t *_packetBuffer;
     enum BlendMode
     {
@@ -41,94 +74,147 @@ class Graphics
         Sub = 2,
         Mul = 3
     };
-
+    static constexpr int k[3] = { 35, 25, 15 };
 public:
-    int currentAvz = 0;
-    POLY_GT4* primitive;
-    [[nodiscard]] POLY_GT4* LoadPolyGT4(const SVECTOR(&values) [4])
-    {
-        primitive = (POLY_GT4 *)db_nextpri;
-        gte_ldv3_f(
-            values[0],
-            values[1],
-            values[2]);
-        gte_rtpt();
+    #define SCREEN_OFFSET_X 0
+    #define SCREEN_OFFSET_Y 0
 
-        gte_nclip();
-        gte_stopz_m(currentAvz);
-        if (currentAvz < 0)
-            return primitive = nullptr;
-
-        gte_avsz3();
-        gte_stotz_m(currentAvz);
-
-        if (((currentAvz) <= 0) || ((currentAvz) >= OT_LEN))
-            return primitive = nullptr;
-        setPolyGT4(primitive);
-        gte_stsxy3_gt4(primitive);
-
-        gte_ldv0_f(values[3]);
-        gte_rtps_b();
-        gte_stsxy(&primitive->x3);
-
-        if (quad_clip<screen_clip>(
-                    (DVECTOR *)&primitive->x0, (DVECTOR *)&primitive->x1,
-                    (DVECTOR *)&primitive->x2, (DVECTOR *)&primitive->x3))
-                return primitive = nullptr;
-        return primitive;
+    void draw_rectangle(int16_t x, int16_t y, int16_t width, int16_t height, CVECTOR color) {
+        // Configure filled rectangle primitive
+        TILE *tile = (TILE*)db_nextpri;
+        
+        setTile(tile);
+        setRGB0(tile, color.r, color.g, color.b);
+        
+        // Convert coordinates to PS1 screen space
+        tile->x0 = SCREEN_OFFSET_X + x;
+        tile->y0 = SCREEN_OFFSET_Y + y;
+        tile->w = width;
+        tile->h = height;
+        
+        // Add to primitive buffer
+        db_nextpri += sizeof(TILE);
+        
+        // Add to ordering table
+        addPrim(_orderingTable, tile);
     }
 
-    void LoadColor(const CVECTOR (&color)[4] = {})
-    {
-        setRGB0(primitive, color[0].r, color[0].g, color[0].b);
+    void draw_tile(TIM_IMAGE* tim, int16_t x, int16_t y, int16_t w, int16_t h) {
+        // Configure image primitive with SPRITE
+        TILE *sprt = (TILE *)db_nextpri;
 
-        *(unsigned int *)&primitive->r1 = *(unsigned int *)(&color[1]);
-        *(unsigned int *)&primitive->r2 = *(unsigned int *)(&color[2]);
-        *(unsigned int *)&primitive->r3 = *(unsigned int *)(&color[3]);
+		setTile(sprt);
+		setXY0(sprt, x, y);
+		setWH(sprt, w, h);
+		setRGB0(sprt, 128, 128, 128);
+		//setUV0(sprt, 0, 0);
+		//setClut(sprt, tim->crect->x, tim->crect->y);
+		addPrim(_orderingTable, sprt);
+		db_nextpri += sizeof(SPRT);
+
+		DR_TPAGE *tpri = (DR_TPAGE *)db_nextpri;
+		auto tpage = getTPage(tim->mode, 0, tim->prect->x, tim->prect->y);
+		setDrawTPage(tpri, 1, 0, tpage);
+		addPrim(_orderingTable, tpri);
+		db_nextpri += sizeof(DR_TPAGE);
+
+        //const RECT texRect = {tim->prect->x, tim->prect->y, tim->prect->w>>3, tim->prect->h>>3};
+        //DR_TWIN* ptwin = (DR_TWIN*)db_nextpri;
+        //setTexWindow(ptwin, &texRect);
+        //addPrim(_orderingTable, ptwin);
+        //db_nextpri = (uint8_t*)(ptwin + 1);
     }
 
-    void LoadTexture(TIM_IMAGE* texture, const DVECTOR (&uvs)[4] = {})
-    {
-        primitive->tpage = getTPage(texture->mode, 0, texture->prect->x, texture->prect->y);
+    void draw_sprite(TIM_IMAGE* tim, int16_t x, int16_t y, int16_t w, int16_t h, const DVECTOR& uv0, const DVECTOR& uv1) {
+        // Configure image primitive with SPRITE
+        SPRT *sprt = (SPRT *)db_nextpri;
 
-        if (texture->mode & 0x8)
-        {
-            setClut(primitive, texture->crect->x, texture->crect->y);
+		setSprt(sprt);
+		setXY0(sprt, x, y);
+		setWH(sprt, w, h);
+		setRGB0(sprt, 128, 128, 128);
+		//setUV0(sprt, uv0.x, uv0.y);
+		setClut(sprt, tim->crect->x, tim->crect->y);
+		addPrim(_orderingTable, sprt);
+		db_nextpri += sizeof(SPRT);
+
+		DR_TPAGE *tpri = (DR_TPAGE *)db_nextpri;
+		auto tpage = getTPage(tim->mode, 0, tim->prect->x, tim->prect->y);
+		setDrawTPage(tpri, 1, 0, tpage);
+		addPrim(_orderingTable, tpri);
+		db_nextpri += sizeof(DR_TPAGE);
+
+        const RECT texRect = {0, 0, tim->prect->w >> 3, tim->prect->h >> 3};  // Use full texture size
+        DR_TWIN* ptwin = (DR_TWIN*)db_nextpri;
+        setTexWindow(ptwin, &texRect);
+        addPrim(_orderingTable, ptwin);
+        db_nextpri = (uint8_t*)(ptwin + 1);
+    }
+
+    void draw_image(TIM_IMAGE* tim, int16_t x, int16_t y, int16_t w, int16_t h, const DVECTOR& uv0, const DVECTOR& uv1) {
+        // Configure image primitive with POLY_FT4
+        POLY_FT4 *quad = (POLY_FT4 *)db_nextpri;
+
+        setPolyFT4(quad);
+        setXY4(quad, x, y, x + w, y, x, y + h, x + w, y + h);
+        setRGB0(quad, 128, 128, 128);
+        setUV4(quad, uv0.vx, uv0.vy, uv1.vx, uv0.vy, uv0.vx, uv1.vy, uv1.vx, uv1.vy);
+        printf("CRECT: %d, %d, %d, %d, %d\n", tim->mode & 0x3, tim->prect->x, tim->prect->y, tim->prect->w, tim->prect->h);
+        setClut(quad, tim->crect->x, tim->crect->y);
+        quad->tpage = getTPage(tim->mode, 0, tim->prect->x, tim->prect->y);
+        addPrim(_orderingTable, quad);
+        db_nextpri += sizeof(POLY_FT4);
+
+        /*
+        const RECT texRect = {tim->prect->x, tim->prect->y, tim->prect->w >> 3, tim->prect->h >> 1};
+        DR_TWIN* ptwin = (DR_TWIN*)db_nextpri;
+        setTexWindow(ptwin, &texRect);
+        addPrim(_orderingTable, ptwin);
+        db_nextpri = (uint8_t*)(ptwin + 1);
+        */
+    }
+    
+    TIM_IMAGE font;
+    void draw_text(const char* text, int16_t x, int16_t y, CVECTOR color) {
+        // Draw each character
+        int16_t cursor_x = x;
+        while (*text) {
+            SPRT *sprt = (SPRT *)db_nextpri;
+
+            setSprt(sprt);
+            setXY0(sprt, cursor_x, y);
+            setWH(sprt, 8, 8);
+            setRGB0(sprt, color.r, color.g, color.b);
+            setShadeTex(sprt, 1);
+            setSemiTrans(sprt, 1);
+            uint8_t c = *text;
+            sprt->u0 = (c % 16) * 8;
+            sprt->v0 = (c / 16) * 8;
+
+            setClut(sprt, font.crect->x, font.crect->y);
+            addPrim(_orderingTable, sprt);
+            db_nextpri += sizeof(SPRT);
+            // Move cursor to next character position
+            cursor_x += 8;
+            text++;
         }
 
-        primitive->u0 = uvs[0].vx;
-        primitive->v0 = uvs[0].vy;
-
-        primitive->u1 = uvs[1].vx;
-        primitive->v1 = uvs[1].vy;
-
-        primitive->u2 = uvs[2].vx;
-        primitive->v2 = uvs[2].vy;
-
-        primitive->u3 = uvs[3].vx;
-        primitive->v3 = uvs[3].vy;
+        DR_TPAGE *tpri = (DR_TPAGE *)db_nextpri;
+        auto tpage = getTPage(font.mode, 0, font.prect->x, font.prect->y);
+        //what are these params of setDrawTPage
+        setDrawTPage(tpri, 0, 0, tpage);
+        addPrim(_orderingTable, tpri);
+        db_nextpri += sizeof(DR_TPAGE);
+        //db_nextpri = (uint8_t*)FntSort(_orderingTable, db_nextpri, x, y, text);
     }
+	
 
-    void Enqueue()
-    {
-        addPrim(_orderingTable + (currentAvz), primitive);
 
-        primitive++;
-        db_nextpri = (uint8_t *)primitive;
-    }
-    template <typename VectorType = const SVECTOR (&)[]>
-    inline void DrawGT4(VectorType values, const SVECTOR &normal, TIM_IMAGE *texture = nullptr, const DVECTOR (&uvs)[] = {}, const CVECTOR (&color)[] = {})
+
+    template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>
+    inline void Draw(VectorType values, const SVECTOR &normal, TIM_IMAGE *texture = nullptr, const DVECTOR (&uvs)[] = {}, const CVECTOR (&color)[] = {}, bool tiling = false, uint8_t level = 0, int z = 0, bool semitransparent = false)
     {
         
-
-        
-
-        
-    }    
-template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>
-    inline void Draw(VectorType values, const SVECTOR &normal, TIM_IMAGE *texture = nullptr, const DVECTOR (&uvs)[] = {}, const CVECTOR (&color)[] = {}, bool semiTransparent = false)
-    {
-        GeometryType *pol4 = (GeometryType *)db_nextpri;
         // Load the first 3 vertices of a quad to the GTE
         gte_ldv3_f(
             values[0],
@@ -149,20 +235,69 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
             if (p < 0)
                 return;
         }
+
+        
+
         // Calculate average Z for depth sorting
         gte_avsz3();
         gte_stotz_m(p);
+        
 
         // Skip if clipping off
         // (the shift right operator is to scale the depth precision)
-        if (((p) <= 0) || ((p) >= OT_LEN))
+        if (((p) <= 0) || ((p + z) >= OT_LEN))
             return;
+
+        if (level < 0 && p <= k[level] && is_same<GeometryType, POLY_FT3>::value)
+        {
+            // Calcula os pontos médios das posições
+            const SVECTOR m1 = midpoint(values[0], values[1]);
+            const SVECTOR m2 = midpoint(values[1], values[2]);
+            const SVECTOR m3 = midpoint(values[2], values[0]);
+
+            // Calcula os pontos médios dos UVs
+            const DVECTOR uv_m1 = midpoint_uv(uvs[0], uvs[1]);
+            const DVECTOR uv_m2 = midpoint_uv(uvs[1], uvs[2]);
+            const DVECTOR uv_m3 = midpoint_uv(uvs[2], uvs[0]);
+
+            // Define os novos triângulos com os UVs correspondentes
+            const SVECTOR triangle1[3] = {values[0], m1, m3};
+            const DVECTOR triangle1_uvs[3] = {uvs[0], uv_m1, uv_m3};
+
+            const SVECTOR triangle2[3] = {m1, values[1], m2};
+            const DVECTOR triangle2_uvs[3] = {uv_m1, uvs[1], uv_m2};
+
+            const SVECTOR triangle3[3] = {m3, m2, values[2]};
+            const DVECTOR triangle3_uvs[3] = {uv_m3, uv_m2, uvs[2]};
+
+            const SVECTOR triangle4[3] = {m1, m2, m3};
+            const DVECTOR triangle4_uvs[3] = {uv_m1, uv_m2, uv_m3};
+
+            Draw<POLY_FT3>(triangle1, normal, texture, triangle1_uvs, color, tiling, level + 1);
+            Draw<POLY_FT3>(triangle2, normal, texture, triangle2_uvs, color, tiling, level + 1);
+            Draw<POLY_FT3>(triangle3, normal, texture, triangle3_uvs, color, tiling, level + 1);
+            Draw<POLY_FT3>(triangle4, normal, texture, triangle4_uvs, color, tiling, level + 1);
+
+            return;
+        }
+
+        if (primCount >= PACKET_LEN)
+        {
+            return;
+        }
+        primCount += 2;
+        //const RECT texRect = {0, 0, tiling ? texture->prect->w>>3, texture->prect->h>>3};
+        //DR_TWIN* ptwin = (DR_TWIN*)db_nextpri;
+        //setTexWindow(ptwin, &texRect);
+        //db_nextpri = (uint8_t*)(ptwin + 1);
+        
+        GeometryType *pol4 = (GeometryType *)db_nextpri;
 
         if constexpr (is_same<GeometryType, POLY_F4>::value)
         {
             // Initialize a quad primitive
             setPolyF4(pol4);
-            
+            // setSemiTrans(pol4, 1);
             //  Set the projected vertices to the primitive
             gte_stsxy3_f4(pol4);
         }
@@ -195,6 +330,16 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
             gte_stsxy3_g4(pol4);
         }
 
+        if constexpr (is_same<GeometryType, POLY_G3>::value)
+        {
+            // Initialize a quad primitive
+            setPolyG3(pol4);
+            // setSemiTrans(pol4, 1);
+
+            // Set the projected vertices to the primitive
+            gte_stsxy3_g3(pol4);
+        }
+
         if constexpr (is_same<GeometryType, POLY_F3>::value)
         {
             // Initialize a quad primitive
@@ -202,6 +347,15 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
             // setSemiTrans(pol4, 1);
             //  Set the projected vertices to the primitive
             gte_stsxy3_f3(pol4);
+        }
+        if constexpr (is_same<GeometryType, POLY_FT3>::value)
+        {
+            // Initialize a quad primitive
+            setPolyFT3(pol4);
+            // setSemiTrans(pol4, 1);
+
+            // Set the projected vertices to the primitive
+            gte_stsxy3_ft3(pol4);
         }
         if constexpr (is_same<GeometryType, POLY_FT4>::value)
         {
@@ -213,8 +367,10 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
             gte_stsxy3_ft4(pol4);
         }
 
-        //if(semiTransparent)
-        //    setSemiTrans(pol4, 1);
+        if (semitransparent)
+        {
+            setSemiTrans(pol4, 1);
+        }
 
         if constexpr (is_same<GeometryType, POLY_F4>::value ||
                       is_same<GeometryType, POLY_FT4>::value ||
@@ -223,15 +379,22 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
         {
             // Compute the last vertex and set the result
             gte_ldv0_f(values[3]);
-            gte_rtps_b();
+            gte_rtps();
             gte_stsxy(&pol4->x3);
         }
         // Test if quad is off-screen, discard if so
-        if constexpr (TriangleClip && (is_same<GeometryType, POLY_F4>::value || is_same<GeometryType, POLY_GT4>::value))
+        if constexpr (false && TriangleClip && (is_same<GeometryType, POLY_F4>::value || is_same<GeometryType, POLY_GT4>::value))
         {
             if (quad_clip<screen_clip>(
                     (DVECTOR *)&pol4->x0, (DVECTOR *)&pol4->x1,
                     (DVECTOR *)&pol4->x2, (DVECTOR *)&pol4->x3))
+                return;
+        }
+        if constexpr (false &&TriangleClip && (is_same<GeometryType, POLY_FT3>::value || is_same<GeometryType, POLY_GT3>::value))
+        {
+            if (tri_clip<screen_clip>(
+                    (DVECTOR *)&pol4->x0, (DVECTOR *)&pol4->x1,
+                    (DVECTOR *)&pol4->x2))
                 return;
         }
 
@@ -281,15 +444,30 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
              gte_ldv0_f(normal);
 
              // Normal Color Single
-             gte_ncs_b();
+             gte_ncs();
 
              // Store result to the primitive
              gte_strgb(&pol4->r0);
          }
          ***/
+        const CVECTOR colors[] = {
+            CVECTOR{ 255, 64, 64},
+            CVECTOR{ 64, 255, 64},
+            CVECTOR{ 64, 64, 255},
+            CVECTOR{ 255, 255, 64},
+            CVECTOR{ 255, 64, 255},
+            CVECTOR{ 64, 255, 255},
+            CVECTOR{ 255, 255, 255},
+        };
 
-        
         setRGB0(pol4, color[0].r, color[0].g, color[0].b);
+
+        //gte_ldrgb( &pol4->r0 );
+        //gte_ldv0_f( normal );
+        //gte_ncs();
+        //gte_strgb( &color[level].r );
+        //gte_strgb3(&pol4->r0,&pol4->r1,&pol4->r2);
+        //setRGB0(pol4, color[0].r, color[0].g, color[0].b);
 
         if constexpr (is_same<GeometryType, POLY_G3>::value || is_same<GeometryType, POLY_GT3>::value)
         {
@@ -310,47 +488,50 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
             // setRGB2(pol4, color[2].r, color[2].g, color[2].b);
             // setRGB3(pol4, color[3].r, color[3].g, color[3].b);
         }
-
-        //gte_ldrgb(pol4->r0);
+        
 
         if constexpr (is_same<GeometryType, POLY_FT3>::value ||
                       is_same<GeometryType, POLY_FT4>::value ||
                       is_same<GeometryType, POLY_GT4>::value ||
                       is_same<GeometryType, POLY_GT3>::value)
         {
-
             // Set tpage
-            pol4->tpage = getTPage(texture->mode, semiTransparent ? 3 : 0, texture->prect->x, texture->prect->y);
-
+            //int tim_uoffs = (texture->prect->x%64)<<(2-(texture->mode&0x3));
+            //int tim_voffs = (texture->prect->y&0xff);
+            pol4->tpage = getTPage(texture->mode, semitransparent ? 3 : 0, texture->prect->x, texture->prect->y);
+            
             if (texture->mode & 0x8)
             {
                 // Set CLUT
                 setClut(pol4, texture->crect->x, texture->crect->y);
             }
-            // setUV3 1, 0, 2
-            pol4->u0 = uvs[0].vx;
-            pol4->v0 = uvs[0].vy;
+            
+            pol4->u0 = uvs[0].vx ;
+            pol4->v0 = uvs[0].vy ;
 
-            pol4->u1 = uvs[1].vx;
-            pol4->v1 = uvs[1].vy;
+            pol4->u1 = uvs[1].vx ;
+            pol4->v1 = uvs[1].vy ;
 
-            pol4->u2 = uvs[2].vx;
-            pol4->v2 = uvs[2].vy;
+            pol4->u2 = uvs[2].vx ;
+            pol4->v2 = uvs[2].vy ;
             if constexpr (is_same<GeometryType, POLY_FT4>::value || is_same<GeometryType, POLY_GT4>::value)
             {
-                pol4->u3 = uvs[3].vx;
-                pol4->v3 = uvs[3].vy;
+                pol4->u3 = uvs[3].vx ;
+                pol4->v3 = uvs[3].vy ;
             }
         }
         // Sort primitive to the ordering table
-        addPrim(_orderingTable + (p), pol4);
+        
+        addPrim(_orderingTable + p + z, pol4);
+        //addPrim(_orderingTable + p + z, ptwin);
 
         // Advance to make another primitive
         pol4++;
         db_nextpri = (uint8_t *)pol4;
+        
     }
     template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>
-    inline void DrawV2(VectorType values, const SVECTOR &normal, TIM_IMAGE *texture = nullptr, const DVECTOR (&uvs)[] = {}, const CVECTOR (&color)[] = {})
+    inline void DrawV2(VectorType values, const SVECTOR &normal, TIM_IMAGE *texture = nullptr, const DVECTOR (&uvs)[] = {}, const CVECTOR (&color)[] = {}, bool tiling = true)
     {
         register uint32_t   ur0     asm("$16");
         register uint32_t   ur1     asm("$17");
@@ -565,7 +746,7 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
                 setClut(pol4, texture->crect->x, texture->crect->y);
             }
             // setUV3
-            pol4->u0 = uvs[0].vx;
+            pol4->u0 = uvs[0].vy;
             pol4->v0 = uvs[0].vy;
 
             pol4->u1 = uvs[1].vx;
@@ -588,11 +769,16 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
     }
     void display()
     {
+        const RECT texRect = {0, 0, 0, 0};
+        DR_TWIN* ptwin = (DR_TWIN*)db_nextpri;
+        setTexWindow(ptwin, &texRect);
+        db_nextpri = (uint8_t*)(ptwin + 1);
+        addPrim(_orderingTable, ptwin);
 
         fps_measure++;
         // Wait for GPU to finish drawing and vertical retrace
-         DrawSync( 0 );
-         VSync( 0 );
+        //DrawSync( 0 );
+        //VSync( 0 );
 
         // Swap buffers
         db_active ^= 1;
@@ -600,7 +786,7 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
 
         // Clear the OT of the next frame
         ClearOTagR(db[db_active]._orderingTable, OT_LEN);
-
+        primCount = 0;
         // Apply display/drawing environments
         PutDrawEnv(&db[db_active].draw);
         PutDispEnv(&db[db_active].disp);
@@ -661,7 +847,7 @@ template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip 
         // Set light ambient color and light color matrix
         gte_SetBackColor(127, 127, 127);
         gte_SetFarColor(127, 127, 127);
-        gte_SetColorMatrix(&color_mtx);
+        //gte_SetColorMatrix(&color_mtx);
 
         VSyncCallback(vsync_cb);
         // Init BIOS pad driver and set pad buffers (buffers are updated
