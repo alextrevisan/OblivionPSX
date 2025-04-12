@@ -74,7 +74,7 @@ class Graphics
         Sub = 2,
         Mul = 3
     };
-    static constexpr int k[3] = { 35, 25, 15 };
+    static constexpr int k[3] = { 75, 25, 15 };
 public:
     #define SCREEN_OFFSET_X 0
     #define SCREEN_OFFSET_Y 0
@@ -248,8 +248,10 @@ public:
         if (((p) <= 0) || ((p + z) >= OT_LEN))
             return;
 
-        if (level < 0 && p <= k[level] && is_same<GeometryType, POLY_FT3>::value)
+
+        if (level < 1 && p <= k[level] && is_same<GeometryType, POLY_GT3>::value)
         {
+            //printf("P: %d\n", p);
             // Calcula os pontos médios das posições
             const SVECTOR m1 = midpoint(values[0], values[1]);
             const SVECTOR m2 = midpoint(values[1], values[2]);

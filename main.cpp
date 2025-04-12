@@ -11,8 +11,9 @@
 #include "engine/collision/PlaneObject.h"
 
 #include "scenario/meshs/oblivion.h"
-#include "scenario/meshs/skeleton1.h"
-#include "scenario/meshs/skeleton2.h"
+#include "scenario/meshs/oblivion2.h"
+#include "scenario/meshs/skeleton.h"
+//#include "scenario/meshs/skeleton2.h"
 #include "scenario/meshs/lightshaft.h"
 #include "scenario/meshs/plane.h"
 
@@ -523,7 +524,7 @@ void compute_normal(const SVECTOR triangle[3], SVECTOR& normal)
 
 
 
-template<typename GeometryType, typename T, bool semiTransparent = false>
+template<typename T, bool semiTransparent = false>
 void render3DModel(const T& model, TIM_IMAGE* texture)
 {
     for(auto triIndex : model.tris)
@@ -555,10 +556,9 @@ void render3DModel(const T& model, TIM_IMAGE* texture)
         const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
         const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
         
-        graphics->Draw<POLY_FT4>(quad, normal, texture, uvs, colors, false, 0 ,0);
+        graphics->Draw<POLY_GT4>(quad, normal, texture, uvs, colors, false, 0 ,0, semiTransparent);
     }
 }
-
 
 //create a function to multiply VECTOR with SVECTOR
 static constexpr SVECTOR operator*(const VECTOR& v, const SVECTOR& s)
@@ -602,11 +602,12 @@ void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
     gte_SetTransMatrix(&omtx);
 
     //constexpr oblivion mybox;
-    render3DModel<POLY_GT4>(oblivion{}, &textures_lvl1_texture);
-    render3DModel<POLY_GT4, lightshaft, true>(lightshaft{}, &light_shaft_texture);
+    render3DModel<>(oblivion{}, &textures_lvl1_texture);
+    render3DModel<>(oblivion2{}, &textures_lvl1_texture);
+    render3DModel<lightshaft, true>(lightshaft{}, &light_shaft_texture);
 
-    render3DModel<POLY_GT4>(skeleton1{}, &skeleton_texture);
-    render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
+    render3DModel<>(skeleton{}, &skeleton_texture);
+    //render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
     //renderPlane(ground.Position,ground.SizeX, ground.SizeZ, {});
     /*for(auto& wall : walls)
     {

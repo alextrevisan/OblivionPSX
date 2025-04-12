@@ -35,7 +35,8 @@ struct lightshaft {
         short vertice3,uv3,normal3,color3;
     };
 
-    const face4 quads[0] = {
+    const face4 quads[1] = {
+        { 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 3, 3, 0, 0 }
     };
 
     struct face3
@@ -45,9 +46,7 @@ struct lightshaft {
         unsigned short vertice2,uv2,normal2,color2;
     };
 
-    const face3 tris[2] = {
-        { 0, 1, 0, 0, 1, 0, 0, 0, 2, 2, 0, 0 },
-        { 2, 1, 0, 0, 1, 2, 0, 0, 3, 3, 0, 0 },
+    const face3 tris[0] = {
     };
 
     int x = 0, y = 0, z = 0;
