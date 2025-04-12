@@ -249,7 +249,7 @@ public:
             return;
 
 
-        if (level < 1 && p <= k[level] && is_same<GeometryType, POLY_GT3>::value)
+        if (level < 0 && p <= k[level] && is_same<GeometryType, POLY_GT3>::value)
         {
             //printf("P: %d\n", p);
             // Calcula os pontos médios das posições

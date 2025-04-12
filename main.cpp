@@ -15,6 +15,7 @@
 #include "scenario/meshs/skeleton.h"
 //#include "scenario/meshs/skeleton2.h"
 #include "scenario/meshs/lightshaft.h"
+#include "scenario/meshs/torch.h"
 #include "scenario/meshs/plane.h"
 
 #include "clip.h"
@@ -605,6 +606,7 @@ void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
     render3DModel<>(oblivion{}, &textures_lvl1_texture);
     render3DModel<>(oblivion2{}, &textures_lvl1_texture);
     render3DModel<lightshaft, true>(lightshaft{}, &light_shaft_texture);
+    render3DModel<>(torch{}, &textures_lvl1_texture);
 
     render3DModel<>(skeleton{}, &skeleton_texture);
     //render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
