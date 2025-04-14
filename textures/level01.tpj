@@ -15,5 +15,17 @@
                 <alpha_stp_threshold>255</alpha_stp_threshold>
             </import_parameters>
         </tim>
+        <tim file="fire.tim" source="fire_sprites.png">
+            <import_parameters>
+                <target_bpp>4</target_bpp>
+                <dithering>0</dithering>
+                <quantize_mode>0</quantize_mode>
+                <set_color_stp>0</set_color_stp>
+                <set_black_stp>0</set_black_stp>
+                <transparency_mode>1</transparency_mode>
+                <alpha_threshold>127</alpha_threshold>
+                <alpha_stp_threshold>255</alpha_stp_threshold>
+            </import_parameters>
+        </tim>
     </tim_group>
 </tim_project>

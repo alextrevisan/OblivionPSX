@@ -74,7 +74,7 @@ class Graphics
         Sub = 2,
         Mul = 3
     };
-    static constexpr int k[3] = { 75, 25, 15 };
+    static constexpr int k[3] = { 100, 25, 15 };
 public:
     #define SCREEN_OFFSET_X 0
     #define SCREEN_OFFSET_Y 0
@@ -223,7 +223,7 @@ public:
         // Rotation, Translation and Perspective Triple
         gte_rtpt();
         int p;
-        if constexpr (false)
+        if constexpr (true)
         {
             // Compute normal clip for backface culling
             gte_nclip();
@@ -269,16 +269,36 @@ public:
             const SVECTOR triangle2[3] = {m1, values[1], m2};
             const DVECTOR triangle2_uvs[3] = {uv_m1, uvs[1], uv_m2};
 
+            /*
             const SVECTOR triangle3[3] = {m3, m2, values[2]};
             const DVECTOR triangle3_uvs[3] = {uv_m3, uv_m2, uvs[2]};
 
             const SVECTOR triangle4[3] = {m1, m2, m3};
             const DVECTOR triangle4_uvs[3] = {uv_m1, uv_m2, uv_m3};
+            */
 
-            Draw<POLY_FT3>(triangle1, normal, texture, triangle1_uvs, color, tiling, level + 1);
-            Draw<POLY_FT3>(triangle2, normal, texture, triangle2_uvs, color, tiling, level + 1);
-            Draw<POLY_FT3>(triangle3, normal, texture, triangle3_uvs, color, tiling, level + 1);
-            Draw<POLY_FT3>(triangle4, normal, texture, triangle4_uvs, color, tiling, level + 1);
+            const SVECTOR quad[4] = {m3, m1, values[2], m2};
+            const DVECTOR quad_uvs[4] = {uv_m3, uv_m1, uvs[2], uv_m2};
+            
+            //FILL cracks in the subdivision
+            const SVECTOR fill1[3] = {m1, values[0], values[1]};
+            const DVECTOR fill1_uv[3] = {uv_m1, uvs[0], uvs[1]};
+
+            const SVECTOR fill2[3] = {m2, values[1], values[2]};
+            const DVECTOR fill2_uv[3] = {uv_m2, uvs[1], uvs[2]};
+
+            const SVECTOR fill3[3] = {m3, values[2], values[0]};
+            const DVECTOR fill3_uv[3] = {uv_m3, uvs[2], uvs[0]};
+            
+            Draw<POLY_GT3>(triangle1, normal, texture, triangle1_uvs, color, tiling, level + 1);
+            Draw<POLY_GT3>(triangle2, normal, texture, triangle2_uvs, color, tiling, level + 1);
+            //Draw<POLY_FT3>(triangle3, normal, texture, triangle3_uvs, color, tiling, level + 1);
+            //Draw<POLY_FT3>(triangle4, normal, texture, triangle4_uvs, color, tiling, level + 1);
+
+            Draw<POLY_GT4>(quad, normal, texture, quad_uvs, color, tiling, level + 1);
+            Draw<POLY_FT3>(fill1, normal, texture, fill1_uv, color, tiling, 255);
+            Draw<POLY_FT3>(fill2, normal, texture, fill2_uv, color, tiling, 255);
+            Draw<POLY_FT3>(fill3, normal, texture, fill3_uv, color, tiling, 255);
 
             return;
         }

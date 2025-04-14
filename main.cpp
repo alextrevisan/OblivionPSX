@@ -16,6 +16,7 @@
 //#include "scenario/meshs/skeleton2.h"
 #include "scenario/meshs/lightshaft.h"
 #include "scenario/meshs/torch.h"
+#include "scenario/meshs/fire.h"
 #include "scenario/meshs/plane.h"
 
 #include "clip.h"
@@ -68,10 +69,13 @@ template <typename T, typename U>
 extern uint32_t light_shaft_tim[];
 extern uint32_t textures_lvl1_tim[];
 extern uint32_t skeleton_tim[];
+extern uint32_t fire_tim[];
 
 TIM_IMAGE light_shaft_texture;
 TIM_IMAGE textures_lvl1_texture;
 TIM_IMAGE skeleton_texture;
+TIM_IMAGE fire_texture;
+
 int PositionScale = 0;
 constexpr RECT screen_clip{0, 0, SCREEN_XRES, SCREEN_YRES};
 uint32_t* getScratchAddr(uint32_t offset = 0)
@@ -260,6 +264,7 @@ int main()
     TextureManager::LoadTexture(textures_lvl1_tim, textures_lvl1_texture);
     TextureManager::LoadTexture(skeleton_tim, skeleton_texture);
     TextureManager::LoadTexture(light_shaft_tim, light_shaft_texture);
+    TextureManager::LoadTexture(fire_tim, fire_texture);
 
     // Set coordinates to the vertex array for the floor
     for (py = 0; py < 17; py++)
@@ -542,8 +547,6 @@ void render3DModel(const T& model, TIM_IMAGE* texture)
         graphics->Draw<POLY_GT3>(triangle, normal, texture, uvs, colors, false, 0, 0, semiTransparent);
     }
 
-    
-
     for(auto quadIndex : model.quads)
     {
         const SVECTOR quad[4] = {
@@ -609,6 +612,7 @@ void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
     render3DModel<>(torch{}, &textures_lvl1_texture);
 
     render3DModel<>(skeleton{}, &skeleton_texture);
+    render3DModel<>(fire{}, &fire_texture);
     //render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
     //renderPlane(ground.Position,ground.SizeX, ground.SizeZ, {});
     /*for(auto& wall : walls)

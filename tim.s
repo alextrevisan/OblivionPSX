@@ -9,6 +9,9 @@
 .global light_shaft_tim
 .type light_shaft_tim, @object
 
+.global fire_tim
+.type fire_tim, @object
+
 textures_lvl1_tim:
 	.incbin "textures/TEXTURES_LVL01.TIM"
 
@@ -18,3 +21,5 @@ skeleton_tim:
 light_shaft_tim:
 	.incbin "textures/SHAFT_EFFECT.tim"
 	
+fire_tim:
+	.incbin "textures/FIRE.TIM"
