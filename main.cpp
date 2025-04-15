@@ -172,7 +172,7 @@ MATRIX light_mtx = {
 #include <GraphicsV2.h>
 
 void draw_tree(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
-void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
+void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot, VECTOR* cameraPos);
 void draw_floor(MATRIX *mtx, VECTOR *pos, SVECTOR *rot);
 void renderPlane(const Vector3& position, const FixedPoint& sizeX, const FixedPoint& sizeZ, const Vector3& rotation);
 Graphics *graphics;
@@ -477,7 +477,7 @@ int main()
         SVECTOR treeRot{0,0,0};
         
         //draw_tree(&mtx, &position, &treeRot);
-        draw_mybox(&mtx, &position, &treeRot);
+        draw_mybox(&mtx, &position, &treeRot, &cam_pos);
         //for(int i = 8; i < COLLIDER_SIZE; i++)
         //{
         //    draw_collision(&mtx, &treeRot, colliders[i]);
@@ -564,6 +564,42 @@ void render3DModel(const T& model, TIM_IMAGE* texture)
     }
 }
 
+// As funções crossProduct e LookAt já estão definidas em engine/lookat.o
+int uv_index = 0;
+int uv_fps = 0;
+template<typename T, bool semiTransparent = false>
+void render3DModelBillboard(const T& model, TIM_IMAGE* texture, VECTOR* cameraPos)
+{
+    for(auto quadIndex : model.quads)
+    {
+        // Calcular o centro do quad para posicionamento do billboard
+        SVECTOR center;
+        center.vx = (model.vertices[quadIndex.vertice0].vx + model.vertices[quadIndex.vertice1].vx) / 2;
+        center.vy = (model.vertices[quadIndex.vertice0].vy + model.vertices[quadIndex.vertice2].vy) / 2;
+        center.vz = model.vertices[quadIndex.vertice0].vz;
+        
+        const SVECTOR quad[4] = {
+            model.vertices[quadIndex.vertice1],
+            model.vertices[quadIndex.vertice0],
+            model.vertices[quadIndex.vertice2],
+            model.vertices[quadIndex.vertice3]
+        };
+
+        const SVECTOR normal = model.normals[quadIndex.normal0];
+        const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
+        const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
+        uv_fps++;
+        if(uv_fps > 10)
+        {
+            uv_fps = 0;
+            uv_index++;
+        }
+
+        graphics->DrawBillboard(center, quad, texture, uvs,( uv_index%7)+1);
+        break;
+    }
+}
+
 //create a function to multiply VECTOR with SVECTOR
 static constexpr SVECTOR operator*(const VECTOR& v, const SVECTOR& s)
 {
@@ -574,7 +610,7 @@ static constexpr SVECTOR operator*(const VECTOR& v, const SVECTOR& s)
 MATRIX omtx, lmtx;
 POLY_F4 *pol4;
 
-void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
+void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot, VECTOR* cameraPos)
 {
 
     int i, p;
@@ -612,7 +648,7 @@ void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot)
     render3DModel<>(torch{}, &textures_lvl1_texture);
 
     render3DModel<>(skeleton{}, &skeleton_texture);
-    render3DModel<>(fire{}, &fire_texture);
+    render3DModelBillboard<>(fire{}, &fire_texture, &cam_pos);
     //render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
     //renderPlane(ground.Position,ground.SizeX, ground.SizeZ, {});
     /*for(auto& wall : walls)

@@ -207,8 +207,76 @@ public:
         db_nextpri += sizeof(DR_TPAGE);
         //db_nextpri = (uint8_t*)FntSort(_orderingTable, db_nextpri, x, y, text);
     }
-	
 
+	inline void DrawBillboard(const SVECTOR &center, const SVECTOR (&verts)[4], TIM_IMAGE *texture, const DVECTOR (&uvs)[], int uv_index)
+	{
+
+        int p;
+		// Load the 3D coordinate of the sprite to GTE
+		gte_ldv0_f(center);
+
+		// Rotation, Translation and Perspective Single
+		gte_rtps();
+
+        int sz;
+        gte_stsz(&sz);
+        // Store depth
+        gte_stszotz(&p);
+        //printf("sz: %d | p: %d\n", sz, p);
+        
+		// Don't sort sprite if depth is zero
+		// (or divide by zero will happen later)
+		if (sz > 0)
+		{
+			SVECTOR spos;
+			// Store result to position vector
+			gte_stsxy2(&spos);
+
+			// Calculate sprite size, the divide operation might be a
+			// performance killer but it's likely faster than performing
+			// a lookat operation between sprite and camera, which some
+			// billboard sprite implementations use.
+			const int szx = ((uvs[0].vx - uvs[1].vx) * SCREEN_XRES * 2) / sz;
+			const int szy = ((uvs[0].vy - uvs[2].vy) * SCREEN_YRES * 2) / sz;
+
+			// Prepare polygon primitive
+			POLY_FT4 *polygon = (POLY_FT4 *)db_nextpri;
+			setPolyFT4(polygon);
+
+			// Set polygon coordinates
+
+			setXY4(polygon,
+				   spos.vx - szx, spos.vy - szy,
+				   spos.vx + szx, spos.vy - szy,
+				   spos.vx - szx, spos.vy + szy,
+				   spos.vx + szx, spos.vy + szy);
+			/*
+			spos.vx-sz, spos.vy-sz,
+						spos.vx+sz, spos.vy-sz,
+						spos.vx-sz, spos.vy+sz,
+						spos.vx+sz, spos.vy+sz*/
+			// Set color
+			setRGB0(polygon, 128, 128, 128);
+			
+			if(texture->mode&0x8)
+			{
+				// Set tpage
+				polygon->tpage = getTPage(texture->mode, 0, texture->prect->x, texture->prect->y);
+
+				// Set CLUT
+				setClut(polygon, texture->crect->x, texture->crect->y);
+			}
+            int width = (uvs[0].vx - uvs[1].vx) * uv_index;
+			// Set texture coordinates
+			setUV4(polygon, uvs[3].vx + width, uvs[3].vy, uvs[2].vx + width, uvs[2].vy,
+				   uvs[0].vx + width, uvs[0].vy, uvs[1].vx + width, uvs[1].vy);
+
+			
+			addPrim(_orderingTable + p, polygon);
+			/* Advance to make another primitive */
+			db_nextpri += sizeof(POLY_FT4);
+		}
+	}
 
 
     template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>

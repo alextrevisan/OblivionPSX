@@ -15,9 +15,9 @@
                 <alpha_stp_threshold>255</alpha_stp_threshold>
             </import_parameters>
         </tim>
-        <tim file="fire.tim" source="fire_sprites.png">
+        <tim file="fire.tim" source="burning_loop_1.png">
             <import_parameters>
-                <target_bpp>4</target_bpp>
+                <target_bpp>8</target_bpp>
                 <dithering>0</dithering>
                 <quantize_mode>0</quantize_mode>
                 <set_color_stp>0</set_color_stp>
