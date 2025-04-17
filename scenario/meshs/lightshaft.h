@@ -6,10 +6,10 @@
 struct lightshaft {
 
     const SVECTOR vertices[4] = {
-        { 695, -1241, -110 },
-        { 1495, -1241, -110 },
-        { 695, -441, -110 },
-        { 1495, -841, -110 }
+        { 600, -1200, -100 },
+        { 1400, -1200, -100 },
+        { 600, -400, -100 },
+        { 1400, -799, -99 }
     };
 
     const DVECTOR uvs[4] = {
@@ -49,7 +49,8 @@ struct lightshaft {
     const face3 tris[0] = {
     };
 
-    int x = 0, y = 0, z = 0;
+    VECTOR position = { 95, -41, -10 };
+    SVECTOR rotation = { 0, 0, 0 };
     TIM_IMAGE* texture = nullptr;
 };
 

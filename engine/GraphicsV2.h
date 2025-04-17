@@ -18,6 +18,14 @@
 //int32_t* _scratchData = reinterpret_cast<int32_t*>(0x1F800000);
 //#define getScratchAddr(offset)  ((int32_t *)(_scratchData+(offset)*4))
 // OT and Packet Buffer sizes
+// Screen resolution
+#define SCREEN_XRES 320
+#define SCREEN_YRES 240
+
+// Screen center position
+#define CENTERX SCREEN_XRES >> 1
+#define CENTERY SCREEN_YRES >> 1
+
 #define OT_LEN 1024
 #define PACKET_LEN 65536*2
 uint8_t pad_buff[2][34];
@@ -38,6 +46,20 @@ namespace
         }
     }
 } // namespace
+
+template <typename T, typename U>
+struct is_same
+{
+    static constexpr bool value = false;
+};
+
+template <typename T>
+struct is_same<T, T> //specialization
+{
+    static constexpr bool value = true;
+};
+
+constexpr RECT screen_clip{0, 0, SCREEN_XRES, SCREEN_YRES};
 
 typedef struct
 {
@@ -208,7 +230,7 @@ public:
         //db_nextpri = (uint8_t*)FntSort(_orderingTable, db_nextpri, x, y, text);
     }
 
-	inline void DrawBillboard(const SVECTOR &center, const SVECTOR (&verts)[4], TIM_IMAGE *texture, const DVECTOR (&uvs)[], int uv_index)
+	inline void DrawBillboard(const SVECTOR &center, TIM_IMAGE *texture, const DVECTOR (&uvs)[], int uv_index)
 	{
 
         int p;

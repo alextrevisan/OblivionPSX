@@ -18,7 +18,7 @@
 #include "scenario/meshs/torch.h"
 #include "scenario/meshs/fire.h"
 #include "scenario/meshs/plane.h"
-
+#include "scenario/scene01.h"
 #include "clip.h"
 #include "engine/lookat.h"
 #include "engine/fast_draw_functions.h"
@@ -27,13 +27,7 @@
 
 //#define FASTMEM __attribute__((section(".fastmem")))
 
-// Screen resolution
-#define SCREEN_XRES 320
-#define SCREEN_YRES 240
 
-// Screen center position
-#define CENTERX SCREEN_XRES >> 1
-#define CENTERY SCREEN_YRES >> 1
 #define gte_getir1( )			\
 	({ long r0;					\
 	__asm__ volatile (			\
@@ -54,18 +48,6 @@
 	r0; })
 
 
-template <typename T, typename U>
-	struct is_same
-	{
-		static constexpr bool value = false;
-	};
-
-	template <typename T>
-	struct is_same<T, T> //specialization
-	{
-		static constexpr bool value = true;
-	};
-
 extern uint32_t light_shaft_tim[];
 extern uint32_t textures_lvl1_tim[];
 extern uint32_t skeleton_tim[];
@@ -75,9 +57,9 @@ TIM_IMAGE light_shaft_texture;
 TIM_IMAGE textures_lvl1_texture;
 TIM_IMAGE skeleton_texture;
 TIM_IMAGE fire_texture;
-
+scene01 *scene;
 int PositionScale = 0;
-constexpr RECT screen_clip{0, 0, SCREEN_XRES, SCREEN_YRES};
+
 uint32_t* getScratchAddr(uint32_t offset = 0)
 {
     return (uint32_t*)0x1F800000;
@@ -266,6 +248,7 @@ int main()
     TextureManager::LoadTexture(light_shaft_tim, light_shaft_texture);
     TextureManager::LoadTexture(fire_tim, fire_texture);
 
+    scene = new scene01(graphics, &textures_lvl1_texture, &skeleton_texture, &light_shaft_texture, &fire_texture);
     // Set coordinates to the vertex array for the floor
     for (py = 0; py < 17; py++)
     {
@@ -477,6 +460,7 @@ int main()
         SVECTOR treeRot{0,0,0};
         
         //draw_tree(&mtx, &position, &treeRot);
+        scene->Render(&mtx, &cam_pos);
         draw_mybox(&mtx, &position, &treeRot, &cam_pos);
         //for(int i = 8; i < COLLIDER_SIZE; i++)
         //{
@@ -564,42 +548,6 @@ void render3DModel(const T& model, TIM_IMAGE* texture)
     }
 }
 
-// As funções crossProduct e LookAt já estão definidas em engine/lookat.o
-int uv_index = 0;
-int uv_fps = 0;
-template<typename T, bool semiTransparent = false>
-void render3DModelBillboard(const T& model, TIM_IMAGE* texture, VECTOR* cameraPos)
-{
-    for(auto quadIndex : model.quads)
-    {
-        // Calcular o centro do quad para posicionamento do billboard
-        SVECTOR center;
-        center.vx = (model.vertices[quadIndex.vertice0].vx + model.vertices[quadIndex.vertice1].vx) / 2;
-        center.vy = (model.vertices[quadIndex.vertice0].vy + model.vertices[quadIndex.vertice2].vy) / 2;
-        center.vz = model.vertices[quadIndex.vertice0].vz;
-        
-        const SVECTOR quad[4] = {
-            model.vertices[quadIndex.vertice1],
-            model.vertices[quadIndex.vertice0],
-            model.vertices[quadIndex.vertice2],
-            model.vertices[quadIndex.vertice3]
-        };
-
-        const SVECTOR normal = model.normals[quadIndex.normal0];
-        const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
-        const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
-        uv_fps++;
-        if(uv_fps > 10)
-        {
-            uv_fps = 0;
-            uv_index++;
-        }
-
-        graphics->DrawBillboard(center, quad, texture, uvs,( uv_index%7)+1);
-        break;
-    }
-}
-
 //create a function to multiply VECTOR with SVECTOR
 static constexpr SVECTOR operator*(const VECTOR& v, const SVECTOR& s)
 {
@@ -642,13 +590,13 @@ void draw_mybox(MATRIX *mtx, VECTOR *pos, SVECTOR *rot, VECTOR* cameraPos)
     gte_SetTransMatrix(&omtx);
 
     //constexpr oblivion mybox;
-    render3DModel<>(oblivion{}, &textures_lvl1_texture);
-    render3DModel<>(oblivion2{}, &textures_lvl1_texture);
-    render3DModel<lightshaft, true>(lightshaft{}, &light_shaft_texture);
-    render3DModel<>(torch{}, &textures_lvl1_texture);
+    //render3DModel<>(oblivion{}, &textures_lvl1_texture);
+    //render3DModel<>(oblivion2{}, &textures_lvl1_texture);
+    //render3DModel<lightshaft, true>(lightshaft{}, &light_shaft_texture);
+    //render3DModel<>(torch{}, &textures_lvl1_texture);
 
-    render3DModel<>(skeleton{}, &skeleton_texture);
-    render3DModelBillboard<>(fire{}, &fire_texture, &cam_pos);
+    //render3DModel<>(skeleton{}, &skeleton_texture);
+    //render3DModelBillboard<>(fire{}, &fire_texture, &cam_pos);
     //render3DModel<POLY_GT4>(skeleton2{}, &skeleton_texture);
     //renderPlane(ground.Position,ground.SizeX, ground.SizeZ, {});
     /*for(auto& wall : walls)
