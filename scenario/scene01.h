@@ -9,6 +9,7 @@
 #include "meshs/lightshaft.h"
 #include "meshs/torch.h"
 #include "meshs/fire.h"
+#include "meshs/level01secretdoor.h"
 
 class scene01
 {
@@ -26,7 +27,8 @@ public:
         render3DModel(graphics, cameraMatrix, skeletonModel, skeleton_texture);
         render3DModel<lightshaft, true>(graphics, cameraMatrix, lightshaftModel, light_shaft_texture);
         render3DModel(graphics, cameraMatrix, torchModel, textures_lvl1_texture);
-        render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);
+        render3DModel(graphics, cameraMatrix, secret_doorModel, textures_lvl1_texture);
+        render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);        
     }
 private:
     Graphics* graphics;
@@ -40,6 +42,7 @@ private:
     oblivion2 oblivion2Model;
     skeleton skeletonModel;
     lightshaft lightshaftModel;
+    level01secretdoor secret_doorModel;
     torch torchModel;
     fire fireModel;
 };
