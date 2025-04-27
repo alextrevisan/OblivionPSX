@@ -11,7 +11,7 @@
 #include "meshs/fire.h"
 #include "meshs/level01secretdoor.h"
 #include "meshs/table.h"
-
+#include "meshs/cavern.h"
 class scene01
 {
 public:
@@ -28,8 +28,9 @@ public:
         render3DModel(graphics, cameraMatrix, skeletonModel, skeleton_texture);
         render3DModel<lightshaft, true>(graphics, cameraMatrix, lightshaftModel, light_shaft_texture);
         render3DModel(graphics, cameraMatrix, torchModel, textures_lvl1_texture);
-        render3DModel(graphics, cameraMatrix, secret_doorModel, textures_lvl1_texture);
+        //render3DModel(graphics, cameraMatrix, secret_doorModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, tableModel, textures_lvl1_texture);
+        render3DModel(graphics, cameraMatrix, cavernModel, textures_lvl1_texture);
         render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);        
     }
 private:
@@ -48,6 +49,7 @@ private:
     torch torchModel;
     fire fireModel;
     table tableModel;
+    cavern cavernModel;
 };
 
 #endif // _SCENE01_H_
