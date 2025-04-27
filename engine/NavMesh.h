@@ -25,7 +25,7 @@ VECTOR ClosestPointOnSegment(const VECTOR& A, const VECTOR& B, const VECTOR& P) 
     return result;
 }
 
-bool PointInTriangleV2(const VECTOR& p, const VECTOR tri[3]) {
+bool PointInTriangle(const VECTOR& p, const VECTOR tri[3]) {
     auto Sign = [](int32_t px, int32_t pz, int32_t ax, int32_t az, int32_t bx, int32_t bz) -> int32_t {
         return (px - bx) * (az - bz) - (ax - bx) * (pz - bz);
     };
@@ -38,44 +38,6 @@ bool PointInTriangleV2(const VECTOR& p, const VECTOR tri[3]) {
     bool has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
 
     return !(has_neg && has_pos);
-}
-
-int min(int a, int b) { return a < b ? a : b; }
-int max(int a, int b) { return a > b ? a : b; }
-
-bool PointInTriangle(const VECTOR& p, const VECTOR tri[3]) {
-    VECTOR A = {tri[0].vx, 0, tri[0].vz};
-    VECTOR B = {tri[1].vx, 0, tri[1].vz};
-    VECTOR C = {tri[2].vx, 0, tri[2].vz};
-    VECTOR P = {p.vx, 0, p.vz};
-
-    int minX = min(min(A.vx, B.vx), C.vx);
-    int maxX = max(max(A.vx, B.vx), C.vx);
-    int minZ = min(min(A.vz, B.vz), C.vz);
-    int maxZ = max(max(A.vz, B.vz), C.vz);
-
-    if (P.vx < minX || P.vx > maxX || P.vz < minZ || P.vz > maxZ) {
-        return false;
-    }
-
-    VECTOR v0 = {B.vx - A.vx, 0, B.vz - A.vz};
-    VECTOR v1 = {C.vx - A.vx, 0, C.vz - A.vz};
-    VECTOR v2 = {P.vx - A.vx, 0, P.vz - A.vz};
-
-    int d00 = DotProduct2D(v0, v0);
-    int d01 = DotProduct2D(v0, v1);
-    int d11 = DotProduct2D(v1, v1);
-    int d20 = DotProduct2D(v2, v0);
-    int d21 = DotProduct2D(v2, v1);
-
-    int denom = d00 * d11 - d01 * d01;
-    if (denom == 0) return false;
-
-    // Para evitar perda de precisão, shift 12 bits
-    int u = ((int64_t)(d11 * d20 - d01 * d21) << 12) / denom;
-    int v = ((int64_t)(d00 * d21 - d01 * d20) << 12) / denom;
-
-    return (u >= 0) && (v >= 0) && (u + v <= 4096);
 }
 
 VECTOR ComputeNormal(const VECTOR tri[3]) {
@@ -124,7 +86,7 @@ VECTOR ComputeNavmeshPosition(VECTOR& position, const Navmesh& navmesh, int phei
         };
 
         VECTOR p = {position.vx, 0, position.vz};
-        if (PointInTriangleV2(p, tri)) {
+        if (PointInTriangle(p, tri)) {
             position.vy = CalculateY(position, tri) + pheight;
             return position;
         }
@@ -134,9 +96,9 @@ VECTOR ComputeNavmeshPosition(VECTOR& position, const Navmesh& navmesh, int phei
     int minDist = 0x7FFFFFFF;
 
     for (const auto& tri_index : navmesh.triangles) {
-        VECTOR A = {navmesh.vertices[tri_index.vertice0].vx, 0, navmesh.vertices[tri_index.vertice0].vz};
-        VECTOR B = {navmesh.vertices[tri_index.vertice1].vx, 0, navmesh.vertices[tri_index.vertice1].vz};
-        VECTOR C = {navmesh.vertices[tri_index.vertice2].vx, 0, navmesh.vertices[tri_index.vertice2].vz};
+        VECTOR A = {navmesh.vertices[tri_index.vertice0].vx, navmesh.vertices[tri_index.vertice0].vy, navmesh.vertices[tri_index.vertice0].vz};
+        VECTOR B = {navmesh.vertices[tri_index.vertice1].vx, navmesh.vertices[tri_index.vertice1].vy, navmesh.vertices[tri_index.vertice1].vz};
+        VECTOR C = {navmesh.vertices[tri_index.vertice2].vx, navmesh.vertices[tri_index.vertice2].vy, navmesh.vertices[tri_index.vertice2].vz};
 
         const VECTOR tri[3] = {A, B, C};
         VECTOR AB[2] = {A, B};
@@ -149,7 +111,7 @@ VECTOR ComputeNavmeshPosition(VECTOR& position, const Navmesh& navmesh, int phei
         if (distSq < minDist) {
             minDist = distSq;
             closestPoint = proj;
-            position.vy = CalculateY(position, tri) + pheight;
+            closestPoint.vy = CalculateY(closestPoint, tri) + pheight;
         }
 
         proj = ClosestPointOnSegment(BC[0], BC[1], position);
@@ -158,7 +120,7 @@ VECTOR ComputeNavmeshPosition(VECTOR& position, const Navmesh& navmesh, int phei
         if (distSq < minDist) {
             minDist = distSq;
             closestPoint = proj;
-            position.vy = CalculateY(position, tri) + pheight;
+            closestPoint.vy = CalculateY(closestPoint, tri) + pheight;
         }
 
         proj = ClosestPointOnSegment(CA[0], CA[1], position);
@@ -167,11 +129,9 @@ VECTOR ComputeNavmeshPosition(VECTOR& position, const Navmesh& navmesh, int phei
         if (distSq < minDist) {
             minDist = distSq;
             closestPoint = proj;
-            position.vy = CalculateY(position, tri) + pheight;
+            closestPoint.vy = CalculateY(closestPoint, tri) + pheight;
         }
     }
 
-    position.vx = closestPoint.vx;
-    position.vz = closestPoint.vz;
-    return position;
+    return closestPoint;
 }
