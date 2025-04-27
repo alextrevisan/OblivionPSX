@@ -7,6 +7,10 @@
 #include <psxetc.h>
 #include <inline_c.h>
 #include <gtemac.h>
+#include "engine/NavMesh.h"
+
+#include "meshs/navmesh0_navmesh.h"
+
 #include "engine/collision/CollisionSolver.h"
 #include "engine/collision/PlaneObject.h"
 
@@ -389,9 +393,30 @@ int main()
 
         }
         
-
-        ProcessPhysics();
+        constexpr auto navmesh = navmesh0_navmesh{};
+        player.Position[0] += moveSpeed[0];  
+        player.Position[1] += moveSpeed[1];  
+        player.Position[2] += moveSpeed[2];
         
+        //cam_pos.vx = player.Position[0].AsFixedPoint();
+        //cam_pos.vy = player.Position[1].AsFixedPoint();
+        //cam_pos.vz = player.Position[2].AsFixedPoint();
+        
+        //ProcessPhysics();
+        
+        //cam_pos = {cam_pos.vx >> 12, cam_pos.vy >> 12, cam_pos.vz >> 12};
+        //printf("cam_pos: %d %d %d\r\n", cam_pos.vx, cam_pos.vy, cam_pos.vz);
+        //printf("cam_pos Antes: %d %d %d\r\n", cam_pos.vx, cam_pos.vy, cam_pos.vz);
+        VECTOR input = {player.Position[0].AsInt(), player.Position[1].AsInt(), player.Position[2].AsInt()};
+        auto res = ComputeNavmeshPosition(input, navmesh, -280);
+        //printf("cam_pos depois: %d %d %d\r\n", cam_pos.vx, cam_pos.vy, cam_pos.vz);
+        player.Position[0] = res.vx;
+        player.Position[1] = res.vy;
+        player.Position[2] = res.vz;
+        
+        cam_pos.vx = player.Position[0].AsFixedPoint();
+        cam_pos.vy = player.Position[1].AsFixedPoint();
+        cam_pos.vz = player.Position[2].AsFixedPoint();
 
         //Sphere sphere = {{0, 1, 0}, {0, 0, 0}, {0, GRAVITY, 0}, 0.5, 1};
         
@@ -421,7 +446,11 @@ int main()
             tpos.vx = -cam_pos.vx >> 12;
             tpos.vy = -cam_pos.vy >> 12;
             tpos.vz = -cam_pos.vz >> 12;
+            //printf("tpos Antes: %d %d %d\r\n", tpos.vx, tpos.vy, tpos.vz);
+            //tpos = ComputeNavmeshPosition<navmesh0_navmesh>(tpos, navmesh, FixedPoint(-280));
+            //printf("tpos depois: %d %d %d\r\n", tpos.vx, tpos.vy, tpos.vz);
 
+            //tpos = {-tpos.vx, -tpos.vy, -tpos.vz};
             // Apply rotation of matrix to translation value to achieve a
             // first person perspective
             ApplyMatrixLV(&mtx, &tpos, &tpos);
@@ -462,6 +491,18 @@ int main()
         //draw_tree(&mtx, &position, &treeRot);
         scene->Render(&mtx, &cam_pos);
         draw_mybox(&mtx, &position, &treeRot, &cam_pos);
+
+        /*for(auto triIndex : navmesh.triangles)
+        {
+            const SVECTOR triangle[3] = {
+                {navmesh.vertices[triIndex.vertice0].vx, navmesh.vertices[triIndex.vertice0].vy, navmesh.vertices[triIndex.vertice0].vz},
+                {navmesh.vertices[triIndex.vertice1].vx, navmesh.vertices[triIndex.vertice1].vy, navmesh.vertices[triIndex.vertice1].vz},
+                {navmesh.vertices[triIndex.vertice2].vx, navmesh.vertices[triIndex.vertice2].vy, navmesh.vertices[triIndex.vertice2].vz}
+            };
+            const CVECTOR colors[] = {128,128,128};
+            const DVECTOR uvs[] = {0,0,0};
+            graphics->Draw<POLY_F3>(triangle, {0, -4095,0}, nullptr, uvs, colors, false, 0, 0, false);
+        }*/
         //for(int i = 8; i < COLLIDER_SIZE; i++)
         //{
         //    draw_collision(&mtx, &treeRot, colliders[i]);

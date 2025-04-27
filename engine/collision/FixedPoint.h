@@ -97,15 +97,15 @@ public:
     FixedPoint(const unsigned long& value) : _value(value << FractionBits) {}
     FixedPoint(const short& value) : _value(value << FractionBits) {}
     FixedPoint(const unsigned short& value) : _value(value << FractionBits) {}
-    FixedPoint(const float& value) : _value(value * _ONE) {}
+    //FixedPoint(const float& value) : _value(value * _ONE) {}
     FixedPoint(const double& value) : _value(value * _ONE) {}
 
     explicit operator int() const                      { return AsInt(); }
     explicit operator long() const                     { return AsInt(); }
     explicit operator unsigned int() const             { return AsInt(); }
     explicit operator unsigned long() const            { return AsInt(); }
-    explicit operator float() const                    { return AsFloat(); }
-    explicit operator double() const                   { return AsFloat(); }
+    //explicit operator float() const                    { return AsFloat(); }
+    //explicit operator double() const                   { return AsFloat(); }
 
     FixedPoint &operator=(const FixedPoint &other) { _value = other._value; return *this; }
 
@@ -217,7 +217,7 @@ public:
     static constexpr inline FixedPoint FromFixedPoint(StoreType value) { return set(value); }
 
     constexpr int AsInt() const { return _value >> FractionBits; }
-    constexpr float AsFloat() const { return (float)_value / _ONE; }
+    //constexpr float AsFloat() const { return (float)_value / _ONE; }
 
     static constexpr FixedPoint PI() { return set(_ONE * 3.14159265359f); }
     static constexpr FixedPoint E() { return set(_ONE * 2.71828182845905); }
@@ -292,6 +292,6 @@ private:
 
 } //namespace ps1
 
-typedef ps1::FixedPoint<12, int> FixedPoint;
+typedef ps1::FixedPoint<12, int, long long> FixedPoint;
 
 #endif //_FIXED_POINT_H_

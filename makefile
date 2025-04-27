@@ -91,7 +91,7 @@ LDFLAGS		= -g -Ttext=0x80010000 -gc-sections \
 
 all: $(OFILES) $(UIFILES) $(ENGINEFILES)
 	@mkdir -p $(BIN_FOLDER)
-	$(LD) $(LDFLAGS) $(LIBDIRS) $(OFILES) $(UIFILES) $(ENGINEFILES) $(LIBS)  -o bin/$(TARGET)
+	$(LD) $(LDFLAGS) $(LIBDIRS) $(OFILES) $(UIFILES) $(ENGINEFILES) $(LIBS) -o bin/$(TARGET)
 	$(ELF2X) -q $(BIN_FOLDER)/$(TARGET) $(BIN_FOLDER)/$(TARGET).exe
 	$(ELF2X) -q $(BIN_FOLDER)/$(TARGET) $(BIN_FOLDER)/$(TARGET).elf
 
