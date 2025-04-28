@@ -24,7 +24,7 @@ struct lightshaft {
     };
 
     const CVECTOR colors[1] = {
-        { 77, 77, 77 }
+        { 51, 51, 51 }
     };
 
     struct face4
@@ -51,6 +51,8 @@ struct lightshaft {
 
     VECTOR position = { 1520, -1187, -67 };
     SVECTOR rotation = { -81, 302, -5 };
+    VECTOR aabb_min = { -725, -125, -75 };
+    VECTOR aabb_max = { 75, 675, -74 };
     TIM_IMAGE* texture = nullptr;
 };
 

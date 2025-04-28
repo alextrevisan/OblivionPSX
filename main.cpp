@@ -418,6 +418,7 @@ int main()
         cam_pos.vy = player.Position[1].AsFixedPoint();
         cam_pos.vz = player.Position[2].AsFixedPoint();
 
+        
         //Sphere sphere = {{0, 1, 0}, {0, 0, 0}, {0, GRAVITY, 0}, 0.5, 1};
         
         FntPrint(-1, "FPS=%d\n",
@@ -487,6 +488,10 @@ int main()
         //db_nextpri = (char *)pol4;
         VECTOR position = {0,0,0};
         SVECTOR treeRot{0,0,0};
+        
+        VECTOR forward = calculateForwardVector(trot);
+		VECTOR right = calculateRightVector(trot);
+		setFrustumPlanes(&mainFrustum, cam_pos, forward, right, 1, 200);
         
         //draw_tree(&mtx, &position, &treeRot);
         scene->Render(&mtx, &cam_pos);

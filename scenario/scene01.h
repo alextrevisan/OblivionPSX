@@ -12,6 +12,9 @@
 #include "meshs/level01secretdoor.h"
 #include "meshs/table.h"
 #include "meshs/cavern.h"
+#include "meshs/cavern2.h"
+#include "meshs/cavern3.h"
+
 class scene01
 {
 public:
@@ -31,6 +34,8 @@ public:
         //render3DModel(graphics, cameraMatrix, secret_doorModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, tableModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavernModel, textures_lvl1_texture);
+        render3DModel(graphics, cameraMatrix, cavern2Model, textures_lvl1_texture);
+        render3DModel(graphics, cameraMatrix, cavern3Model, textures_lvl1_texture);
         render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);        
     }
 private:
@@ -50,6 +55,8 @@ private:
     fire fireModel;
     table tableModel;
     cavern cavernModel;
+    cavern2 cavern2Model;
+    cavern3 cavern3Model;
 };
 
 #endif // _SCENE01_H_

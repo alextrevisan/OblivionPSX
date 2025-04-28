@@ -313,7 +313,7 @@ public:
         // Rotation, Translation and Perspective Triple
         gte_rtpt();
         int p;
-        if constexpr (true)
+        if constexpr (false)
         {
             // Compute normal clip for backface culling
             gte_nclip();

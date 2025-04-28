@@ -3,6 +3,9 @@
 
 #include "inline_c.h"
 #include "GraphicsV2.h"
+#include "Frustum.h"
+
+static FRUSTUM mainFrustum;
 
 template<typename T, bool semiTransparent = false>
 void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM_IMAGE* texture)
@@ -15,6 +18,11 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
     CompMatrixLV(cameraMatrix, &omtx, &omtx);
     gte_SetTransMatrix(&omtx);
     gte_SetRotMatrix(&omtx);
+
+    if(!isAABBInFrustum(&mainFrustum, model.aabb_min, model.aabb_max))
+    {
+        return;
+    }
 
     for(auto triIndex : model.tris)
     {
