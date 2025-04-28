@@ -14,6 +14,7 @@
 #include "meshs/cavern.h"
 #include "meshs/cavern2.h"
 #include "meshs/cavern3.h"
+#include "meshs/cavern4.h"
 
 class scene01
 {
@@ -36,6 +37,7 @@ public:
         render3DModel(graphics, cameraMatrix, cavernModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavern2Model, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavern3Model, textures_lvl1_texture);
+        render3DModel(graphics, cameraMatrix, cavern4Model, textures_lvl1_texture);
         render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);        
     }
 private:
@@ -57,6 +59,7 @@ private:
     cavern cavernModel;
     cavern2 cavern2Model;
     cavern3 cavern3Model;
+    cavern4 cavern4Model;
 };
 
 #endif // _SCENE01_H_
