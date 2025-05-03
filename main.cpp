@@ -489,9 +489,8 @@ int main()
         VECTOR position = {0,0,0};
         SVECTOR treeRot{0,0,0};
         
-        VECTOR forward = calculateForwardVector(trot);
-		VECTOR right = calculateRightVector(trot);
-		setFrustumPlanes(&mainFrustum, cam_pos, forward, right, 1, 200);
+
+		setFrustumPlanes(&mainFrustum, cam_pos, &mtx, 0, 2000);
         
         //draw_tree(&mtx, &position, &treeRot);
         scene->Render(&mtx, &cam_pos);

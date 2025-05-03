@@ -37,7 +37,7 @@ public:
         render3DModel(graphics, cameraMatrix, cavernModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavern2Model, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavern3Model, textures_lvl1_texture);
-        render3DModel(graphics, cameraMatrix, cavern4Model, textures_lvl1_texture);
+        render3DModel(graphics, cameraMatrix, cavern4Model, textures_lvl1_texture, true);
         render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);        
     }
 private:

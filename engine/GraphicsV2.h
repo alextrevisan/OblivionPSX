@@ -96,7 +96,7 @@ class Graphics
         Sub = 2,
         Mul = 3
     };
-    static constexpr int k[3] = { 100, 25, 15 };
+    static constexpr int k[3] = { 200, 25, 15 };
 public:
     #define SCREEN_OFFSET_X 0
     #define SCREEN_OFFSET_Y 0
@@ -313,7 +313,7 @@ public:
         // Rotation, Translation and Perspective Triple
         gte_rtpt();
         int p;
-        if constexpr (false)
+        if constexpr (true)
         {
             // Compute normal clip for backface culling
             gte_nclip();

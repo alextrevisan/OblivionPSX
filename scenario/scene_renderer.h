@@ -8,7 +8,7 @@
 static FRUSTUM mainFrustum;
 
 template<typename T, bool semiTransparent = false>
-void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM_IMAGE* texture)
+void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM_IMAGE* texture, bool test = false)
 {
     MATRIX omtx;
     VECTOR pos = model.position;
@@ -19,10 +19,14 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
     gte_SetTransMatrix(&omtx);
     gte_SetRotMatrix(&omtx);
 
-    if(!isAABBInFrustum(&mainFrustum, model.aabb_min, model.aabb_max))
+    //if(test)
     {
-        return;
+        if(!isAABBInFrustum(&mainFrustum, model.aabb_min, model.aabb_max))
+        {
+            return;
+        }
     }
+    
 
     for(auto triIndex : model.tris)
     {

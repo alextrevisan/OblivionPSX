@@ -18,131 +18,123 @@ typedef struct {
     VECTOR direction;
 } FRUSTUM;
 
-VECTOR calculateForwardVector(const SVECTOR& rot) {
-    VECTOR forward = {-(( isin( rot.vy )*icos( rot.vx ) )>>12), isin( -rot.vx ), (( icos( rot.vx )*icos( rot.vy ) )>>12)};
-    SVECTOR out;
-    VectorNormalS(&forward, &out);
-    return {out.vx, out.vy, out.vz};
-}
 
-VECTOR calculateRightVector(const SVECTOR& rot) {
-    VECTOR right = {icos( rot.vy ), 0, isin( rot.vy )};
-    SVECTOR out;
-    VectorNormalS(&right, &out);
-    return {out.vx, out.vy, out.vz};
-}
+void setFrustumPlanes(FRUSTUM* frustum, VECTOR cam_pos, const MATRIX* camMatrix, int nearDist, int farDist) {
+    frustum->position = {cam_pos.vx>>12, cam_pos.vy>>12, cam_pos.vz>>12};
 
-void setFrustumPlanes(FRUSTUM* frustum, VECTOR cam_pos, VECTOR forward, VECTOR right, int nearDist, int farDist) {
-    frustum->position = { cam_pos.vx, cam_pos.vy, cam_pos.vz };
-    
+    // Pega os vetores diretamente da matrix
+    VECTOR forward = {camMatrix->m[2][0], camMatrix->m[2][1], camMatrix->m[2][2]};
+    VECTOR right   = {camMatrix->m[0][0], camMatrix->m[0][1], camMatrix->m[0][2]};
+
     frustum->direction = forward;
+    frustum->farPlane.normal = { -forward.vx, -forward.vy, -forward.vz };
+    frustum->farPlane.d = farDist << 12;
 
-    frustum->farPlane.normal = { -forward.vx, 0, -forward.vz };
-    frustum->farPlane.d = farDist;
+    frustum->nearPlane.normal = forward;
+    frustum->nearPlane.d = nearDist << 12;
 
-    frustum->nearPlane.normal = { forward.vx, 0, forward.vz };
-    frustum->nearPlane.d = nearDist;
-    
-    SVECTOR rotAngle = {0, -512, 0};
     MATRIX rotMatrix;
-    RotMatrix(&rotAngle, &rotMatrix);
-    
-    VECTOR negRight = {-right.vx, -right.vy, -right.vz};
-    VECTOR rotatedRight;
-    ApplyMatrixLV(&rotMatrix, &negRight, &rotatedRight);
-    
+    VECTOR rotated;
     SVECTOR out;
-    VectorNormalS(&rotatedRight, &out);
+
+    SVECTOR rotAngle = {0, 512, 0};
+    RotMatrix(&rotAngle, &rotMatrix);    
+    auto left = VECTOR{-right.vx, -right.vy, -right.vz};
+    ApplyMatrixLV(&rotMatrix, &left, &rotated);
+    VectorNormalS(&rotated, &out);
     frustum->leftPlane.normal = { out.vx, out.vy, out.vz };
-    
-    frustum->leftPlane.d = (frustum->leftPlane.normal.vx * frustum->position.vx + 
-                           frustum->leftPlane.normal.vy * frustum->position.vy + 
-                           frustum->leftPlane.normal.vz * frustum->position.vz)>>12;
+    frustum->leftPlane.d = (out.vx * cam_pos.vx + 
+                            out.vy * cam_pos.vy + 
+                            out.vz * cam_pos.vz) >> 12;
 
-    
-    rotAngle = {0, 512, 0};
-    rotMatrix = {};
+    rotAngle = {0, -512, 0};
     RotMatrix(&rotAngle, &rotMatrix);
-    
-    VECTOR posRight = {right.vx, right.vy, right.vz};
-
-    ApplyMatrixLV(&rotMatrix, &posRight, &rotatedRight);
-    
-    VectorNormalS(&rotatedRight, &out);
+    ApplyMatrixLV(&rotMatrix, &right, &rotated);
+    VectorNormalS(&rotated, &out);
 
     frustum->rightPlane.normal = { out.vx, out.vy, out.vz };
-    frustum->rightPlane.d = (frustum->rightPlane.normal.vx * frustum->position.vx + 
-                            frustum->rightPlane.normal.vy * frustum->position.vy + 
-                            frustum->rightPlane.normal.vz * frustum->position.vz)>>12;
+    frustum->rightPlane.d = (out.vx * cam_pos.vx + 
+                             out.vy * cam_pos.vy + 
+                             out.vz * cam_pos.vz) >> 12;
+}
+static int culling_count = 0;
+static int total_count = 0;
+
+int32_t dotProduct(VECTOR normal, SVECTOR point) {
+    return normal.vx * point.vx + 
+           normal.vy * point.vy + 
+           normal.vz * point.vz;
 }
 
 int isPointInFrustum(FRUSTUM* frustum, SVECTOR point) {
-    SVECTOR relPoint;
-    relPoint.vx = point.vx - (frustum->position.vx>>12);
-    relPoint.vy = point.vy - (frustum->position.vy>>12);
-    relPoint.vz = point.vz - (frustum->position.vz>>12);
+    point.vx -= frustum->position.vx;
+    point.vy -= frustum->position.vy;
+    point.vz -= frustum->position.vz;
     
-    int nearDistance = (frustum->nearPlane.normal.vx * relPoint.vx + 
-                   frustum->nearPlane.normal.vz * relPoint.vz + 
-                   frustum->nearPlane.d);
-
-    int farDistance = (frustum->farPlane.normal.vx * relPoint.vx + 
-                  frustum->farPlane.normal.vz * relPoint.vz + 
-                  frustum->farPlane.d);
+    int farDistance = dotProduct(frustum->farPlane.normal, point) + frustum->farPlane.d;
+    if(farDistance < 0) return false;
+    int nearDistance = dotProduct(frustum->nearPlane.normal, point) - frustum->nearPlane.d;
+    if(nearDistance < 0) return false;
+    int leftDistance = dotProduct(frustum->leftPlane.normal, point);
+    if(leftDistance < 0) return false;
+    int rightDistance = dotProduct(frustum->rightPlane.normal, point);
+    if(rightDistance < 0) return false;
     
-    int leftDistance = (frustum->leftPlane.normal.vx * relPoint.vx + 
-                   frustum->leftPlane.normal.vz * relPoint.vz + 
-                   frustum->leftPlane.d);
-    
-    int rightDistance = (frustum->rightPlane.normal.vx * relPoint.vx + 
-                    frustum->rightPlane.normal.vz * relPoint.vz + 
-                    frustum->rightPlane.d);
-    
-    return (nearDistance >= 0) && (farDistance <= 0) && (leftDistance <= 0) && (rightDistance <= 0);
+    return true;
 }
 
 int isAABBInFrustum(FRUSTUM* frustum, VECTOR min, VECTOR max) {
-    SVECTOR corners[8];
-    
-    // Verificar se qualquer um dos cantos da caixa está dentro do frustum
-    int inside = 0;
-    
-    // Pontos relativos à posição da câmera
+    // Transformar AABB para coordenadas relativas ao frustum
     SVECTOR relMin, relMax;
-    relMin.vx = min.vx - (frustum->position.vx>>12);
-    relMin.vy = min.vy - (frustum->position.vy>>12);
-    relMin.vz = min.vz - (frustum->position.vz>>12);
+    relMin.vx = min.vx - frustum->position.vx;
+    relMin.vy = min.vy - frustum->position.vy;
+    relMin.vz = min.vz - frustum->position.vz;
     
-    relMax.vx = max.vx - (frustum->position.vx>>12);
-    relMax.vy = max.vy - (frustum->position.vy>>12);
-    relMax.vz = max.vz - (frustum->position.vz>>12);
+    relMax.vx = max.vx - frustum->position.vx;
+    relMax.vy = max.vy - frustum->position.vy;
+    relMax.vz = max.vz - frustum->position.vz;
     
-    // Verificar cada plano do frustum
-    // Plano Near
-    if ((frustum->nearPlane.normal.vx * relMin.vx + frustum->nearPlane.normal.vz * relMin.vz + frustum->nearPlane.d < 0) &&
-        (frustum->nearPlane.normal.vx * relMax.vx + frustum->nearPlane.normal.vz * relMax.vz + frustum->nearPlane.d < 0)) {
-        return 0; // Completamente atrás do plano near
+    // Testar cada plano do frustum contra a AABB
+    // Para cada plano, encontramos o ponto mais próximo e o mais distante da AABB
+    // em relação ao plano, e testamos se esses pontos estão do lado positivo ou negativo
+    //Teste com o plane Near
+    SVECTOR p_near;
+    // Escolha o ponto da AABB mais distante ao longo da normal do plano Near
+    p_near.vx = (frustum->nearPlane.normal.vx > 0) ? relMax.vx : relMin.vx;
+    p_near.vy = (frustum->nearPlane.normal.vy > 0) ? relMax.vy : relMin.vy;
+    p_near.vz = (frustum->nearPlane.normal.vz > 0) ? relMax.vz : relMin.vz;
+    if (dotProduct(frustum->nearPlane.normal, p_near) - frustum->nearPlane.d < 0) {
+        return 0; // AABB está completamente além do plano Near
+    }
+    // Teste com o plano Far
+    SVECTOR p_far;
+    // Escolha o ponto da AABB mais distante ao longo da normal do plano Far
+    p_far.vx = (frustum->farPlane.normal.vx > 0) ? relMax.vx : relMin.vx;
+    p_far.vy = (frustum->farPlane.normal.vy > 0) ? relMax.vy : relMin.vy;
+    p_far.vz = (frustum->farPlane.normal.vz > 0) ? relMax.vz : relMin.vz;
+    if (dotProduct(frustum->farPlane.normal, p_far) + frustum->farPlane.d < 0) {
+        return 0; // AABB está completamente além do plano Far
     }
     
-    // Plano Far
-    if ((frustum->farPlane.normal.vx * relMin.vx + frustum->farPlane.normal.vz * relMin.vz + frustum->farPlane.d > 0) &&
-        (frustum->farPlane.normal.vx * relMax.vx + frustum->farPlane.normal.vz * relMax.vz + frustum->farPlane.d > 0)) {
-        return 0; // Completamente além do plano far
+    // Teste com o plano Left
+    SVECTOR p_left;
+    p_left.vx = (frustum->leftPlane.normal.vx > 0) ? relMax.vx : relMin.vx;
+    p_left.vy = (frustum->leftPlane.normal.vy > 0) ? relMax.vy : relMin.vy;
+    p_left.vz = (frustum->leftPlane.normal.vz > 0) ? relMax.vz : relMin.vz;
+    if (dotProduct(frustum->leftPlane.normal, p_left) < 0) {
+        return 0; // AABB está completamente além do plano Left
     }
     
-    // Plano Left
-    if ((frustum->leftPlane.normal.vx * relMin.vx + frustum->leftPlane.normal.vz * relMin.vz + frustum->leftPlane.d > 0) &&
-        (frustum->leftPlane.normal.vx * relMax.vx + frustum->leftPlane.normal.vz * relMax.vz + frustum->leftPlane.d > 0)) {
-        return 0; // Completamente à direita do plano esquerdo
+    // Teste com o plano Right
+    SVECTOR p_right;
+    p_right.vx = (frustum->rightPlane.normal.vx > 0) ? relMax.vx : relMin.vx;
+    p_right.vy = (frustum->rightPlane.normal.vy > 0) ? relMax.vy : relMin.vy;
+    p_right.vz = (frustum->rightPlane.normal.vz > 0) ? relMax.vz : relMin.vz;
+    if (dotProduct(frustum->rightPlane.normal, p_right) < 0) {
+        return 0; // AABB está completamente além do plano Right
     }
     
-    // Plano Right
-    if ((frustum->rightPlane.normal.vx * relMin.vx + frustum->rightPlane.normal.vz * relMin.vz + frustum->rightPlane.d > 0) &&
-        (frustum->rightPlane.normal.vx * relMax.vx + frustum->rightPlane.normal.vz * relMax.vz + frustum->rightPlane.d > 0)) {
-        return 0; // Completamente à esquerda do plano direito
-    }
-    
-    // Se chegou até aqui, ao menos parte da AABB está dentro do frustum
+    // Se passar em todos os testes, a AABB está pelo menos parcialmente dentro do frustum
     return 1;
 }
 
