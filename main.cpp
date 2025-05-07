@@ -408,7 +408,7 @@ int main()
         //printf("cam_pos: %d %d %d\r\n", cam_pos.vx, cam_pos.vy, cam_pos.vz);
         //printf("cam_pos Antes: %d %d %d\r\n", cam_pos.vx, cam_pos.vy, cam_pos.vz);
         VECTOR input = {player.Position[0].AsInt(), player.Position[1].AsInt(), player.Position[2].AsInt()};
-        auto res = ComputeNavmeshPosition(input, navmesh, -280);
+        auto res = ComputeNavmeshPosition(input, navmesh, -380);
         //printf("cam_pos depois: %d %d %d\r\n", cam_pos.vx, cam_pos.vy, cam_pos.vz);
         player.Position[0] = res.vx;
         player.Position[1] = res.vy;
@@ -490,11 +490,15 @@ int main()
         SVECTOR treeRot{0,0,0};
         
 
-		setFrustumPlanes(&mainFrustum, cam_pos, &mtx, 0, 2000);
+		setFrustumPlanes(&mainFrustum, cam_pos, &mtx, 0, 3000);
         
+        culling_count = 0;
+        total_count = 0;
         //draw_tree(&mtx, &position, &treeRot);
         scene->Render(&mtx, &cam_pos);
         draw_mybox(&mtx, &position, &treeRot, &cam_pos);
+        FntPrint(-1, "Culling Count: %d\n", culling_count);
+        FntPrint(-1, "Total Count: %d\n", total_count);
 
         /*for(auto triIndex : navmesh.triangles)
         {

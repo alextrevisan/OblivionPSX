@@ -15,6 +15,9 @@
 #include "meshs/cavern2.h"
 #include "meshs/cavern3.h"
 #include "meshs/cavern4.h"
+#include "meshs/torch2.h"
+#include "meshs/fire2.h"
+#include "meshs/plane.h"
 
 class scene01
 {
@@ -32,13 +35,16 @@ public:
         render3DModel(graphics, cameraMatrix, skeletonModel, skeleton_texture);
         render3DModel<lightshaft, true>(graphics, cameraMatrix, lightshaftModel, light_shaft_texture);
         render3DModel(graphics, cameraMatrix, torchModel, textures_lvl1_texture);
+        render3DModel(graphics, cameraMatrix, torch2Model, textures_lvl1_texture);
         //render3DModel(graphics, cameraMatrix, secret_doorModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, tableModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavernModel, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavern2Model, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavern3Model, textures_lvl1_texture);
         render3DModel(graphics, cameraMatrix, cavern4Model, textures_lvl1_texture, true);
-        render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);        
+        render3DModelBillboard<fire>(graphics, cameraMatrix, fireModel, fire_texture, cam_pos);
+        render3DModelBillboard<fire2>(graphics, cameraMatrix, fire2Model, fire_texture, cam_pos);        
+        //render3DModel(graphics, cameraMatrix, planeModel, textures_lvl1_texture);
     }
 private:
     Graphics* graphics;
@@ -54,12 +60,15 @@ private:
     lightshaft lightshaftModel;
     level01secretdoor secret_doorModel;
     torch torchModel;
+    torch2 torch2Model;
     fire fireModel;
+    fire2 fire2Model;
     table tableModel;
     cavern cavernModel;
     cavern2 cavern2Model;
     cavern3 cavern3Model;
     cavern4 cavern4Model;
+    plane planeModel;
 };
 
 #endif // _SCENE01_H_

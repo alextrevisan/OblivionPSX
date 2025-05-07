@@ -1,9 +1,9 @@
-#ifndef __torch_h_
-#define __torch_h_
+#ifndef __torch2_h_
+#define __torch2_h_
 
 #include <psxgte.h>
 
-struct torch {
+struct torch2 {
 
     const SVECTOR vertices[8] = {
         { 274, -828, -76 },
@@ -91,11 +91,11 @@ struct torch {
     const face3 tris[0] = {
     };
 
-    VECTOR position = { -164, 380, 0 };
-    SVECTOR rotation = { 0, 0, 0 };
+    VECTOR position = { 1353, 312, 1815 };
+    SVECTOR rotation = { 0, 1024, 0 };
     VECTOR aabb_min = { 249, -844, -76 };
     VECTOR aabb_max = { 300, -661, 8 };
     TIM_IMAGE* texture = nullptr;
 };
 
-#endif //__torch_h_
+#endif //__torch2_h_

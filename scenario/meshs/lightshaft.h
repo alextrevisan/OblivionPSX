@@ -24,7 +24,7 @@ struct lightshaft {
     };
 
     const CVECTOR colors[1] = {
-        { 51, 51, 51 }
+        { 128, 128, 128 }
     };
 
     struct face4

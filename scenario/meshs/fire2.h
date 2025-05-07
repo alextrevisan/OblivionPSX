@@ -1,15 +1,15 @@
-#ifndef __fire_h_
-#define __fire_h_
+#ifndef __fire2_h_
+#define __fire2_h_
 
 #include <psxgte.h>
 
-struct fire {
+struct fire2 {
 
     const SVECTOR vertices[1] = {
-        { 1300, -600, 1541 }
+        { 109, -532, -52 }
     };
 
-    VECTOR position = { 1300, -600, 1541 };
+    VECTOR position = { 109, -532, -52 };
     const DVECTOR uvs[4] = {
         { 24, 0 },
         { 0, 0 },
@@ -29,4 +29,4 @@ struct fire {
     const uint8_t width = 24;
 };
 
-#endif //__fire_h_
+#endif //__fire2_h_

@@ -19,13 +19,15 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
     gte_SetTransMatrix(&omtx);
     gte_SetRotMatrix(&omtx);
 
-    //if(test)
+    total_count++;
+    VECTOR aabb_min = {model.aabb_min.vx + model.position.vx, model.aabb_min.vy + model.position.vy, model.aabb_min.vz + model.position.vz};
+    VECTOR aabb_max = {model.aabb_max.vx + model.position.vx, model.aabb_max.vy + model.position.vy, model.aabb_max.vz + model.position.vz};
+    if(!isAABBInFrustum(&mainFrustum, aabb_min, aabb_max))
     {
-        if(!isAABBInFrustum(&mainFrustum, model.aabb_min, model.aabb_max))
-        {
-            return;
-        }
+        culling_count++;
+        return;
     }
+    
     
 
     for(auto triIndex : model.tris)
