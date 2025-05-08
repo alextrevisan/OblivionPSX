@@ -99,6 +99,13 @@ inline void gte_ldv3_f(const SVECTOR& v0, const SVECTOR& v1, const SVECTOR& v2)
     asm volatile ("mtc2 %0, $5\n" :  : "r"(z10): );
 }
 
+inline void gte_ldrgb3_f(const CVECTOR& v0, const CVECTOR& v1, const CVECTOR& v2)
+{
+  asm volatile ("mtc2 %0, $20\n" :  : "r"(*(int*)&v0.r): );
+  asm volatile ("mtc2 %0, $21\n" :  : "r"(*(int*)&v1.r): );
+  asm volatile ("mtc2 %0, $22\n" :  : "r"(*(int*)&v2.r) : );
+  asm volatile ("mtc2 %0, $6\n" :  : "r"(*(int*)&v2.r): );
+}
 
 inline void gte_ldv0_f(const VECTOR& v0)
 {

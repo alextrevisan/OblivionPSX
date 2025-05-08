@@ -144,13 +144,13 @@ typedef struct
 
 
 
-inline SVECTOR midpoint(const SVECTOR& p1, const SVECTOR& p2) {
+constexpr inline SVECTOR midpoint(const SVECTOR& p1, const SVECTOR& p2) {
     return {(p1.vx + p2.vx)>>1, (p1.vy + p2.vy)>>1, (p1.vz + p2.vz)>>1};
 }
-inline DVECTOR midpoint_uv(const DVECTOR& uv1, const DVECTOR& uv2) {
+constexpr inline DVECTOR midpoint_uv(const DVECTOR& uv1, const DVECTOR& uv2) {
     return {(uv1.vx + uv2.vx) >> 1, (uv1.vy + uv2.vy) >> 1};
 }
-inline CVECTOR midpoint_color(const CVECTOR& color1, const CVECTOR& color2) {
+constexpr inline CVECTOR midpoint_color(const CVECTOR& color1, const CVECTOR& color2) {
     return {(color1.r + color2.r) >> 1, (color1.g + color2.g) >> 1, (color1.b + color2.b) >> 1};
 }
 uint16_t primCount = 0;
@@ -172,7 +172,7 @@ class Graphics
         Sub = 2,
         Mul = 3
     };
-    static constexpr int k[3] = { 50, 25, 15 };
+    static constexpr int k[3] = { 125, 25, 15 };
 public:
     #define SCREEN_OFFSET_X 0
     #define SCREEN_OFFSET_Y 0
@@ -377,7 +377,7 @@ public:
 	}
 
 
-    template <typename GeometryType, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>
+    template <typename GeometryType, bool subdivide = true, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>
     void Draw(VectorType values, const SVECTOR &normal, TIM_IMAGE *texture = nullptr, const DVECTOR (&uvs)[] = {}, const CVECTOR (&color)[] = {}, bool tiling = false, uint8_t level = 0, int z = 0, bool semitransparent = false)
     {
         
@@ -416,68 +416,124 @@ public:
             return;
 
 
-        if (level < 1 && p <= k[level] && is_same<GeometryType, POLY_GT3>::value)
+        if constexpr (subdivide && is_same<GeometryType, POLY_GT3>::value )
         {
-            //printf("P: %d\n", p);
-            // Calcula os pontos médios das posições
-            const SVECTOR m1 = midpoint(values[0], values[1]);
-            const SVECTOR m2 = midpoint(values[1], values[2]);
-            const SVECTOR m3 = midpoint(values[2], values[0]);
+            if (level < 1 && p <= k[level])
+            {
+                // Calcula os pontos médios das posições
+                const SVECTOR m1 = midpoint(values[0], values[1]);
+                const SVECTOR m2 = midpoint(values[1], values[2]);
+                const SVECTOR m3 = midpoint(values[2], values[0]);
 
-            // Calcula os pontos médios dos UVs
-            const DVECTOR uv_m1 = midpoint_uv(uvs[0], uvs[1]);
-            const DVECTOR uv_m2 = midpoint_uv(uvs[1], uvs[2]);
-            const DVECTOR uv_m3 = midpoint_uv(uvs[2], uvs[0]);
+                // Calcula os pontos médios dos UVs
+                const DVECTOR uv_m1 = midpoint_uv(uvs[0], uvs[1]);
+                const DVECTOR uv_m2 = midpoint_uv(uvs[1], uvs[2]);
+                const DVECTOR uv_m3 = midpoint_uv(uvs[2], uvs[0]);
 
-            const CVECTOR color_m1 = midpoint_color(color[0], color[1]);
-            const CVECTOR color_m2 = midpoint_color(color[1], color[2]);
-            const CVECTOR color_m3 = midpoint_color(color[2], color[0]);
+                const CVECTOR color_m1 = midpoint_color(color[0], color[1]);
+                const CVECTOR color_m2 = midpoint_color(color[1], color[2]);
+                const CVECTOR color_m3 = midpoint_color(color[2], color[0]);
 
-            // Define os novos triângulos com os UVs correspondentes
-            const SVECTOR triangle1[3] = {values[0], m1, m3};
-            const DVECTOR triangle1_uvs[3] = {uvs[0], uv_m1, uv_m3};
-            const CVECTOR triangle1_color[3] = {color[0], color_m1, color_m3};
+                // Define os novos triângulos com os UVs correspondentes
+                const SVECTOR triangle1[3] = {values[0], m1, m3};
+                const DVECTOR triangle1_uvs[3] = {uvs[0], uv_m1, uv_m3};
+                const CVECTOR triangle1_color[3] = {color[0], color_m1, color_m3};
 
-            const SVECTOR triangle2[3] = {m1, values[1], m2};
-            const DVECTOR triangle2_uvs[3] = {uv_m1, uvs[1], uv_m2};
-            const CVECTOR triangle2_color[3] = {color_m1, color[1], color_m2};
+                const SVECTOR triangle2[3] = {m1, values[1], m2};
+                const DVECTOR triangle2_uvs[3] = {uv_m1, uvs[1], uv_m2};
+                const CVECTOR triangle2_color[3] = {color_m1, color[1], color_m2};
 
-            /*
-            const SVECTOR triangle3[3] = {m3, m2, values[2]};
-            const DVECTOR triangle3_uvs[3] = {uv_m3, uv_m2, uvs[2]};
+                /*
+                const SVECTOR triangle3[3] = {m3, m2, values[2]};
+                const DVECTOR triangle3_uvs[3] = {uv_m3, uv_m2, uvs[2]};
 
-            const SVECTOR triangle4[3] = {m1, m2, m3};
-            const DVECTOR triangle4_uvs[3] = {uv_m1, uv_m2, uv_m3};
-            */
+                const SVECTOR triangle4[3] = {m1, m2, m3};
+                const DVECTOR triangle4_uvs[3] = {uv_m1, uv_m2, uv_m3};
+                */
 
-            const SVECTOR quad[4] = {m3, m1, values[2], m2};
-            const DVECTOR quad_uvs[4] = {uv_m3, uv_m1, uvs[2], uv_m2};
-            const CVECTOR quad_color[4] = {color_m3, color_m1, color[2], color_m2};
-            
-            //FILL cracks in the subdivision
-            const SVECTOR fill1[3] = {m1, values[0], values[1]};
-            const DVECTOR fill1_uv[3] = {uv_m1, uvs[0], uvs[1]};
-            const CVECTOR fill1_color[3] = {color_m1, color[0], color[1]};
+                const SVECTOR quad[4] = {m3, m1, values[2], m2};
+                const DVECTOR quad_uvs[4] = {uv_m3, uv_m1, uvs[2], uv_m2};
+                const CVECTOR quad_color[4] = {color_m3, color_m1, color[2], color_m2};
+                
+                //FILL cracks in the subdivision
+                const SVECTOR fill1[3] = {m1, values[0], values[1]};
+                const DVECTOR fill1_uv[3] = {uv_m1, uvs[0], uvs[1]};
+                const CVECTOR fill1_color[3] = {color_m1, color[0], color[1]};
 
-            const SVECTOR fill2[3] = {m2, values[1], values[2]};
-            const DVECTOR fill2_uv[3] = {uv_m2, uvs[1], uvs[2]};
-            const CVECTOR fill2_color[3] = {color_m2, color[1], color[2]};
+                const SVECTOR fill2[3] = {m2, values[1], values[2]};
+                const DVECTOR fill2_uv[3] = {uv_m2, uvs[1], uvs[2]};
+                const CVECTOR fill2_color[3] = {color_m2, color[1], color[2]};
 
-            const SVECTOR fill3[3] = {m3, values[2], values[0]};
-            const DVECTOR fill3_uv[3] = {uv_m3, uvs[2], uvs[0]};
-            const CVECTOR fill3_color[3] = {color_m3, color[2], color[0]};
-            
-            Draw<POLY_GT3>(triangle1, normal, texture, triangle1_uvs, triangle1_color, tiling, level + 1);
-            Draw<POLY_GT3>(triangle2, normal, texture, triangle2_uvs, triangle2_color, tiling, level + 1);
-            //Draw<POLY_FT3>(triangle3, normal, texture, triangle3_uvs, color, tiling, level + 1);
-            //Draw<POLY_FT3>(triangle4, normal, texture, triangle4_uvs, color, tiling, level + 1);
+                const SVECTOR fill3[3] = {m3, values[2], values[0]};
+                const DVECTOR fill3_uv[3] = {uv_m3, uvs[2], uvs[0]};
+                const CVECTOR fill3_color[3] = {color_m3, color[2], color[0]};
+                
+                Draw<POLY_GT3, false>(triangle1, normal, texture, triangle1_uvs, triangle1_color, tiling, level + 1);
+                Draw<POLY_GT3, false>(triangle2, normal, texture, triangle2_uvs, triangle2_color, tiling, level + 1);
+                //Draw<POLY_FT3>(triangle3, normal, texture, triangle3_uvs, color, tiling, level + 1);
+                //Draw<POLY_FT3>(triangle4, normal, texture, triangle4_uvs, color, tiling, level + 1);
 
-            Draw<POLY_GT4>(quad, normal, texture, quad_uvs, quad_color, tiling, level + 1);
-            Draw<POLY_GT3>(fill1, normal, texture, fill1_uv, fill1_color, tiling, 255);
-            Draw<POLY_GT3>(fill2, normal, texture, fill2_uv, fill2_color, tiling, 255);
-            Draw<POLY_GT3>(fill3, normal, texture, fill3_uv, fill3_color, tiling, 255);
+                Draw<POLY_GT4, false>(quad, normal, texture, quad_uvs, quad_color, tiling, level + 1);
+                Draw<POLY_GT3, false>(fill1, normal, texture, fill1_uv, fill1_color, tiling, 255);
+                Draw<POLY_GT3, false>(fill2, normal, texture, fill2_uv, fill2_color, tiling, 255);
+                Draw<POLY_GT3, false>(fill3, normal, texture, fill3_uv, fill3_color, tiling, 255);
 
-            return;
+                return;
+            }
+        }
+
+        if constexpr (subdivide && is_same<GeometryType, POLY_GT4>::value)
+        {
+            if (level < 1 && p <= k[level])
+            {
+                // 0-----1       0--4--1
+                // |     |       |  |  |
+                // |     |  -->  5--8--6  + filler at the edges to fix gaps
+                // |     |       |  |  |
+                // 2-----3       2--7--3
+                // Calcula os pontos médios das posições
+                const SVECTOR m4 = midpoint(values[0], values[1]);
+                const SVECTOR m6 = midpoint(values[1], values[3]);
+                const SVECTOR m5 = midpoint(values[0], values[2]);
+                const SVECTOR m7 = midpoint(values[2], values[3]);
+                const SVECTOR m8 = midpoint(values[1], values[2]);
+
+                // Calcula os pontos médios dos UVs
+                const DVECTOR uv_m4 = midpoint_uv(uvs[0], uvs[1]);
+                const DVECTOR uv_m6 = midpoint_uv(uvs[1], uvs[3]);
+                const DVECTOR uv_m5 = midpoint_uv(uvs[0], uvs[2]);
+                const DVECTOR uv_m7 = midpoint_uv(uvs[2], uvs[3]);
+                const DVECTOR uv_m8 = midpoint_uv(uvs[1], uvs[2]);
+
+                const CVECTOR color_m4 = midpoint_color(color[0], color[1]);
+                const CVECTOR color_m6 = midpoint_color(color[1], color[3]);
+                const CVECTOR color_m5 = midpoint_color(color[0], color[2]);
+                const CVECTOR color_m7 = midpoint_color(color[2], color[3]);
+                const CVECTOR color_m8 = midpoint_color(color[1], color[2]);
+
+                const SVECTOR quad1[4] = {values[0], m4, m5, m8};
+                const DVECTOR quad1_uvs[4] = {uvs[0], uv_m4, uv_m5, uv_m8};
+                const CVECTOR quad1_color[4] = {{255,0,0},{255,0,0},{255,0,0},{255,0,0}};//{color[0], color_m4, color_m5, color_m8};
+
+                const SVECTOR quad2[4] = {m4, values[1], m8, m6};
+                const DVECTOR quad2_uvs[4] = {uv_m4, uvs[1], uv_m8, uv_m6};
+                const CVECTOR quad2_color[4] = {{255,0,0},{255,0,0},{255,0,0},{255,0,0}};//{color_m4, color[1], color_m8, color_m6};
+
+                const SVECTOR quad3[4] = {m8, m6, m7, values[3]};
+                const DVECTOR quad3_uvs[4] = {uv_m8, uv_m6, uv_m7, uvs[3]};
+                const CVECTOR quad3_color[4] = {{255,0,0},{255,0,0},{255,0,0},{255,0,0}};//{color_m8, color_m6, color_m7, color[3]};
+
+                const SVECTOR quad4[4] = {m5, m8, values[2], m7};
+                const DVECTOR quad4_uvs[4] = {uv_m5, uv_m8, uvs[2], uv_m7};
+                const CVECTOR quad4_color[4] = {{255,0,0},{255,0,0},{255,0,0},{255,0,0}};//{color_m5, color_m8, color[2], color_m7};
+
+                Draw<POLY_GT4, false>(quad1, normal, texture, quad1_uvs, quad1_color, tiling, level + 1);
+                Draw<POLY_GT4, false>(quad2, normal, texture, quad2_uvs, quad2_color, tiling, level + 1);
+                Draw<POLY_GT4, false>(quad3, normal, texture, quad3_uvs, quad3_color, tiling, level + 1);
+                Draw<POLY_GT4, false>(quad4, normal, texture, quad4_uvs, quad4_color, tiling, level + 1);
+
+                return;
+            }
         }
 
         if (primCount >= PACKET_LEN)
@@ -751,6 +807,31 @@ public:
         FntOpen(0, 8, 320, 216, 0, 100);
 
         _orderingTable = &db[db_active]._orderingTable[0];
+    }
+
+    inline uint8_t* NextPrimitive()
+    {
+        return db_nextpri;
+    }
+
+    inline void NextPrimitive(uint8_t* next)
+    {
+        db_nextpri = next;
+    }
+
+    inline uint32_t* GetOrderingTable()
+    {
+        return _orderingTable;
+    }
+    inline void SetOrderingTable(uint32_t* table)
+    {
+        _orderingTable = table;
+    }
+    inline void AddPOLY_GT4(POLY_GT4* primitive, int p)
+    {
+        addPrim(_orderingTable + p, primitive);
+        primitive++;
+        db_nextpri = (uint8_t *)primitive;
     }
 };
 
