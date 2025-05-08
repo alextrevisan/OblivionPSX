@@ -52,19 +52,6 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
     CVECTOR out[4];
     for(auto quadIndex : model.quads)
     {
-        /*const SVECTOR quad[4] = {
-            model.vertices[quadIndex.vertice1],
-            model.vertices[quadIndex.vertice0],
-            model.vertices[quadIndex.vertice2],
-            model.vertices[quadIndex.vertice3]
-        };*/
-
-        //const SVECTOR normal = model.normals[quadIndex.normal0];
-        //const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
-        //const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
-        
-        //graphics->Draw<POLY_GT4>(quad, normal, texture, uvs, colors, false, 0 ,0, semiTransparent);
-        //continue;
         gte_ldv3_f(model.vertices[quadIndex.vertice1], model.vertices[quadIndex.vertice0], model.vertices[quadIndex.vertice2]);
         gte_rtpt_b();
         gte_nclip_b();
@@ -92,7 +79,10 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         setRGB1(next_primitive, out[1].r, out[1].g, out[1].b);
         setRGB2(next_primitive, out[2].r, out[2].g, out[2].b);
 
-        gte_DpqColor(&model.colors[quadIndex.color3], dist, &out[3]);
+        gte_ldrgb(&model.colors[quadIndex.color3]);
+        gte_lddp(dist);
+        gte_dpcs_b();
+        gte_strgb(&out[3]);
         setRGB3(next_primitive, out[3].r, out[3].g, out[3].b);
 
         next_primitive->tpage = tpage;
