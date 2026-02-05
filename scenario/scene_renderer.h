@@ -135,10 +135,10 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         // |     |  -->  5--8--6  + filler at the edges to fix gaps
         // |     |       |  |  |
         // 2-----3       2--7--3
-        POLY_GT4* quad_0458 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
-        POLY_GT4* quad_4186 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
-        POLY_GT4* quad_5827 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
-        POLY_GT4* quad_8673 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
+        POLY_GT4* quad_0458 = next_primitive++;
+        POLY_GT4* quad_4186 = next_primitive++;
+        POLY_GT4* quad_5827 = next_primitive++;
+        POLY_GT4* quad_8673 = next_primitive++;
         
         POLY_GT3* tri_014 = (POLY_GT3*)next_primitive;    next_primitive = (POLY_GT4*)((uint8_t*)next_primitive + sizeof(POLY_GT3));
         POLY_GT3* tri_052 = (POLY_GT3*)next_primitive;    next_primitive = (POLY_GT4*)((uint8_t*)next_primitive + sizeof(POLY_GT3));
