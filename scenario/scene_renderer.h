@@ -11,6 +11,14 @@ static FRUSTUM mainFrustum;
 #define COPY_POS(src, dest) *(uint32_t*)dest = *(uint32_t*)src;
 #define COPY_UV(src, dest) *(uint16_t*)dest = *(uint16_t*)src;
 
+enum BlendMode
+{
+    Alpha50,
+    Aditive,
+    Subtractive,
+    Subtractive50
+};
+
 template<typename T, bool semiTransparent = false>
 void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM_IMAGE* texture, bool test = false)
 {
@@ -48,10 +56,10 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         graphics->Draw<POLY_GT3, false>(triangle, normal, texture, uvs, colors, false, 0, 0, semiTransparent);
     }
 
-    constexpr int P_DIST_SUBDIVIDE = 200;
+    constexpr int P_DIST_SUBDIVIDE = 400;
     auto orderingTable = graphics->GetOrderingTable();
     auto next_primitive = (POLY_GT4 *)graphics->NextPrimitive();
-    auto tpage = getTPage(texture->mode, 0, texture->prect->x, texture->prect->y);
+    auto tpage = getTPage(texture->mode, semiTransparent ? BlendMode::Aditive : BlendMode::Alpha50, texture->prect->x, texture->prect->y);
     auto clut = getClut(texture->crect->x, texture->crect->y);
     CVECTOR out[4];
     int p;
@@ -89,6 +97,7 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         if (p > P_DIST_SUBDIVIDE)
         {
             setPolyGT4(next_primitive);
+            setSemiTrans(next_primitive, semiTransparent ? BlendMode::Aditive : BlendMode::Alpha50);
             next_primitive->x0 = screenPts[0].vx;
             next_primitive->y0 = screenPts[0].vy;
             next_primitive->x1 = screenPts[1].vx;
@@ -113,7 +122,7 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
             gte_dpcs_b();
             gte_strgb(&out[3]);
             setRGB3(next_primitive, out[3].r, out[3].g, out[3].b);
-
+            
             next_primitive->tpage = tpage;
             next_primitive->clut = clut;
             
@@ -205,6 +214,7 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         POLY_GT4* quads[4] = {quad_0458, quad_4186, quad_5827, quad_8673};
         for(int i = 0; i < 4; i++) {
             setPolyGT4(quads[i]);
+            setSemiTrans(quads[i], semiTransparent ? BlendMode::Aditive : BlendMode::Alpha50);
             quads[i]->clut = clut;
             quads[i]->tpage = tpage;
         }
@@ -278,6 +288,7 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         POLY_GT3* tris[4] = {tri_014, tri_052, tri_136, tri_273};
         for(int i = 0; i < 4; i++) {
             setPolyGT3(tris[i]);
+            setSemiTrans(tris[i], semiTransparent ? BlendMode::Aditive : BlendMode::Alpha50);
             tris[i]->clut = clut;
             tris[i]->tpage = tpage;
         }
