@@ -66,6 +66,43 @@ int32_t dotProduct(VECTOR normal, SVECTOR point) {
            normal.vz * point.vz;
 }
 
+int32_t gte_dot_product_psn00bsdk_restricted(VECTOR vec_s0_12, SVECTOR vec_s16_0) {
+    unsigned long v0xy_packed;
+    long v0z_val;
+
+    // Load the S16.0 vector (vec_s16_0) into GTE vector register V0.
+    // V0X and V0Y are packed into one long for gte_ldv0XY_reg.
+    // GTE data register 0 (cop2r0, VXY0): VX0 in lower 16 bits, VY0 in upper 16 bits.
+    // GTE data register 1 (cop2r1, VZ0): VZ0.
+    // These macros are from gtemisc.h.
+    v0xy_packed = ( ( (unsigned long)( (unsigned short)vec_s16_0.vy ) ) << 16) |
+                  (unsigned long)( (unsigned short)vec_s16_0.vx );
+    v0z_val = (long)vec_s16_0.vz;
+
+   // gte_ldv0(&vec_s16_0);
+    gte_ldv0XY_reg(v0xy_packed); // Load V0X and V0Y components
+    gte_ldv0Z_reg(v0z_val);      // Load V0Z component
+
+    // Load the S0.12 vector (vec_s0_12) components into GTE IR1, IR2, IR3 registers.
+    // These macros are from gtemisc.h and load a long (short is sign-extended).
+    gte_ldir1((long)vec_s0_12.vx); // IR1 = vec_s0_12->vx (S0.12)
+    gte_ldir2((long)vec_s0_12.vy); // IR2 = vec_s0_12->vy (S0.12)
+    gte_ldir3((long)vec_s0_12.vz); // IR3 = vec_s0_12->vz (S0.12)
+
+    // Execute the Normal Color Single (NCS) GTE command.
+    // gte_ncs() is used by macros in gtemac.h (e.g., gte_NormalColor) and is assumed
+    // to be a defined primitive GTE command macro in the PSn00bSDK environment.
+    // The NCS command (opcode 0x1E, typically 0x018001E) calculates:
+    // MAC1 = (IR1*V0.vx + IR2*V0.vy + IR3*V0.vz)
+    // With shift factor (sf) = 0, the result S0.12 * S16.0 = S16.12 is stored in MAC1.
+    gte_ncs();
+
+    // Retrieve the dot product result from GTE register MAC1.
+    // gte_getmac1() is from gtemisc.h and returns a long.
+    // The result is in S16.12 format.
+    return gte_getmac1();
+}
+
 int isPointInFrustum(FRUSTUM* frustum, SVECTOR point) {
     point.vx -= frustum->position.vx;
     point.vy -= frustum->position.vy;

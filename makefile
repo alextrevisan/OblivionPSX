@@ -5,14 +5,14 @@ TARGET		= OblivionPSX
 
 #EMULATOR
 
-#EMUBIN = D:\\Dev\\DevEngine3D\\pcsx-redux\\pcsx-redux.exe
-#EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).cue
+EMUBIN = d:\\Dev\\DevEngine3D\\pcsx-redux\\pcsx-redux.exe
+EMU_CMD = $(EMUBIN) -iso iso/$(TARGET).cue
 
 #EMUBIN = D:\\Dev\\Dev2024\\RetroArch-Win64\\retroarch.exe
 #EMU_CMD = $(EMUBIN) -L swanstation_libretro.dll iso/$(TARGET).cue $(EMUBIN) -fastboot iso/$(TARGET).cue
 
-EMUBIN = D:\\Dev\\Dev2023\\ALL_PS1\\duckstation\\duckstation.exe
-EMU_CMD = $(EMUBIN) -fastboot iso/$(TARGET).cue
+#EMUBIN = d:\\Dev\\Dev2023\\ALL_PS1\\duckstation\\duckstation.exe
+#EMU_CMD = $(EMUBIN) -fastboot iso/$(TARGET).cue
 
 #EMU_CMD = $(NOPS) -exe bin/$(TARGET).exe com5 -fast
 #EMU_CMD = $(MCOMMS) -dev com5 run bin/$(TARGET).exe

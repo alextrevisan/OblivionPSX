@@ -50,23 +50,6 @@
 	:							\
 	);							\
 	r0; })
-namespace
-{
-    int fps;
-    int fps_counter;
-    int fps_measure;
-
-    void vsync_cb(void)
-    {
-        fps_counter++;
-        if (fps_counter >= 60)
-        {
-            fps = fps_measure;
-            fps_measure = 0;
-            fps_counter = 0;
-        }
-    }
-} // namespace
 
 template <typename T, typename U>
 	struct is_same
@@ -218,8 +201,6 @@ VECTOR TPE_envPlane(VECTOR point, VECTOR center, VECTOR normal, TPE_Unit width, 
 constexpr int COLLIDER_SIZE = 7;
 
 constexpr AABoxCollider colliders[COLLIDER_SIZE] = {
- 
-//{VECTOR(convertValue(277),convertValue(46247),convertValue(0)), VECTOR(convertValue(512), convertValue(500000), convertValue(903384))},
 {VECTOR(convertValue(-679330),convertValue(340000),convertValue(0)), VECTOR(convertValue(50000), convertValue(500000), convertValue(903384))},
 {VECTOR(convertValue(801173),convertValue(339994),convertValue(557448)), VECTOR(convertValue(150000), convertValue(500000), convertValue(150000))},
 {VECTOR(convertValue(-4165),convertValue(339994),convertValue(557448)), VECTOR(convertValue(150000), convertValue(500000), convertValue(150000))},
@@ -232,9 +213,9 @@ VECTOR environmentDistance(VECTOR p, TPE_Unit maxD)
 {
   // manually created environment to match the 3D model of it
   TPE_ENV_START( TPE_envGround(p,0),p )
-  //for(int  i = 0; i < COLLIDER_SIZE; ++i)
+  for(int  i = 0; i < COLLIDER_SIZE; ++i)
   {
-    //TPE_ENV_NEXT(TPE_envAABox(p, colliders[i].center,colliders[i].size), p);
+    TPE_ENV_NEXT(TPE_envAABox(p, colliders[i].center,colliders[i].size), p);
   }
   //TPE_ENV_NEXT(TPE_envPlane(p,VECTOR(convertValue(0),0,0),VECTOR(-TPE_FRACTIONS_PER_UNIT,0,0), 2000, 2000), p)
   //TPE_ENV_NEXT(TPE_envAABoxInsideAA(p,aabbMin,aabbMax), p)
@@ -640,11 +621,12 @@ void render3DModel(const T& model, TIM_IMAGE* texture)
         const DVECTOR uvs[] = {model.uvs[quadIndex.uv1], model.uvs[quadIndex.uv0], model.uvs[quadIndex.uv2], model.uvs[quadIndex.uv3]};
         const CVECTOR colors[] = {model.colors[quadIndex.color1],model.colors[quadIndex.color0], model.colors[quadIndex.color2], model.colors[quadIndex.color3]};
         
-        auto pol = graphics->LoadPolyGT4(quad);
-        if(pol == nullptr) continue;
-        graphics->LoadColor(colors);
-        graphics->LoadTexture(texture, uvs);
-        graphics->Enqueue();
+        graphics->Draw<POLY_GT3>(quad, normal, texture, uvs, colors);
+        //auto pol = graphics->LoadPolyGT4(quad);
+        //if(pol == nullptr) continue;
+        //graphics->LoadColor(colors);
+        //graphics->LoadTexture(texture, uvs);
+        //graphics->Enqueue();
     }
 }
 

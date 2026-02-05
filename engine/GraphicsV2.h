@@ -14,6 +14,7 @@
 #include "Util.h"
 #include "clip.h"
 #include <cstdint>
+#include "gtemisc.h"
 //#include "ui.h"
 //int32_t* _scratchData = reinterpret_cast<int32_t*>(0x1F800000);
 //#define getScratchAddr(offset)  ((int32_t *)(_scratchData+(offset)*4))
@@ -144,14 +145,28 @@ typedef struct
 
 
 
-constexpr inline SVECTOR midpoint(const SVECTOR& p1, const SVECTOR& p2) {
-    return {(p1.vx + p2.vx)>>1, (p1.vy + p2.vy)>>1, (p1.vz + p2.vz)>>1};
+inline SVECTOR midpoint(const SVECTOR& p1, const SVECTOR& p2) {
+    //return {(p1.vx + p2.vx)>>1, (p1.vy + p2.vy)>>1, (p1.vz + p2.vz)>>1};
+    gte_ldir1(p1.vx + p2.vx);
+    gte_ldir2(p1.vy + p2.vy);
+    gte_ldir3(p1.vz + p2.vz);
+    gte_gpf12();
+    return {gte_getir1(), gte_getir2(), gte_getir3()};
 }
-constexpr inline DVECTOR midpoint_uv(const DVECTOR& uv1, const DVECTOR& uv2) {
-    return {(uv1.vx + uv2.vx) >> 1, (uv1.vy + uv2.vy) >> 1};
+inline DVECTOR midpoint_uv(const DVECTOR& uv1, const DVECTOR& uv2) {
+    //return {(uv1.vx + uv2.vx) >> 1, (uv1.vy + uv2.vy) >> 1};
+    gte_ldir1(uv1.vx + uv2.vx);
+    gte_ldir2(uv1.vy + uv2.vy);
+    gte_gpf12();
+    return {gte_getir1(), gte_getir2()};
 }
-constexpr inline CVECTOR midpoint_color(const CVECTOR& color1, const CVECTOR& color2) {
-    return {(color1.r + color2.r) >> 1, (color1.g + color2.g) >> 1, (color1.b + color2.b) >> 1};
+inline CVECTOR midpoint_color(const CVECTOR& color1, const CVECTOR& color2) {
+    //return {(color1.r + color2.r) >> 1, (color1.g + color2.g) >> 1, (color1.b + color2.b) >> 1};
+    gte_ldir1(color1.r + color2.r);
+    gte_ldir2(color1.g + color2.g);
+    gte_ldir3(color1.b + color2.b);
+    gte_gpf12();
+    return {gte_getir1(), gte_getir2(), gte_getir3()};
 }
 uint16_t primCount = 0;
 class Graphics
@@ -377,7 +392,7 @@ public:
 	}
 
 
-    template <typename GeometryType, bool subdivide = true, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>
+    template <typename GeometryType, bool subdivide = false, bool BackfaceCulling = true, bool TriangleClip = true, bool ComputeNormal = true, typename VectorType = const SVECTOR (&)[]>
     void Draw(VectorType values, const SVECTOR &normal, TIM_IMAGE *texture = nullptr, const DVECTOR (&uvs)[] = {}, const CVECTOR (&color)[] = {}, bool tiling = false, uint8_t level = 0, int z = 0, bool semitransparent = false)
     {
         
@@ -420,6 +435,7 @@ public:
         {
             if (level < 1 && p <= k[level])
             {
+                gte_ldir0(2048);
                 // Calcula os pontos médios das posições
                 const SVECTOR m1 = midpoint(values[0], values[1]);
                 const SVECTOR m2 = midpoint(values[1], values[2]);
@@ -718,8 +734,8 @@ public:
 
         fps_measure++;
         // Wait for GPU to finish drawing and vertical retrace
-        //DrawSync( 0 );
-        //VSync( 0 );
+        DrawSync( 0 );
+        VSync( 0 );
 
         // Swap buffers
         db_active ^= 1;

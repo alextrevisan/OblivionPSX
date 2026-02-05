@@ -6,10 +6,10 @@
 struct fire2 {
 
     const SVECTOR vertices[1] = {
-        { 109, -532, -52 }
+        { -4, -532, 165 }
     };
 
-    VECTOR position = { 109, -532, -52 };
+    VECTOR position = { -4, -532, 165 };
     const DVECTOR uvs[4] = {
         { 24, 0 },
         { 0, 0 },
