@@ -135,11 +135,15 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         // |     |  -->  5--8--6  + filler at the edges to fix gaps
         // |     |       |  |  |
         // 2-----3       2--7--3
-        POLY_GT4* original = next_primitive;
         POLY_GT4* quad_0458 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
         POLY_GT4* quad_4186 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
         POLY_GT4* quad_5827 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
         POLY_GT4* quad_8673 = (POLY_GT4*)next_primitive;    next_primitive += sizeof(POLY_GT4) / sizeof(*next_primitive);
+        
+        POLY_GT3* tri_014 = (POLY_GT3*)next_primitive;    next_primitive = (POLY_GT4*)((uint8_t*)next_primitive + sizeof(POLY_GT3));
+        POLY_GT3* tri_052 = (POLY_GT3*)next_primitive;    next_primitive = (POLY_GT4*)((uint8_t*)next_primitive + sizeof(POLY_GT3));
+        POLY_GT3* tri_136 = (POLY_GT3*)next_primitive;    next_primitive = (POLY_GT4*)((uint8_t*)next_primitive + sizeof(POLY_GT3));
+        POLY_GT3* tri_273 = (POLY_GT3*)next_primitive;    next_primitive = (POLY_GT4*)((uint8_t*)next_primitive + sizeof(POLY_GT3));
 
         gte_ldir0(2048);
         const SVECTOR v4 = midpoint(*v1, *v0);
@@ -265,6 +269,55 @@ void render3DModel(Graphics* graphics, MATRIX* cameraMatrix, const T& model, TIM
         addPrim(orderingTable + p, quad_4186);
         addPrim(orderingTable + p, quad_5827);
         addPrim(orderingTable + p, quad_8673);
+        
+        setXY3(tri_014, screenPts[0].vx, screenPts[0].vy, screenPts[1].vx, screenPts[1].vy, screenPts[4].vx, screenPts[4].vy);
+        setXY3(tri_052, screenPts[0].vx, screenPts[0].vy, screenPts[5].vx, screenPts[5].vy, screenPts[2].vx, screenPts[2].vy);
+        setXY3(tri_136, screenPts[1].vx, screenPts[1].vy, screenPts[3].vx, screenPts[3].vy, screenPts[6].vx, screenPts[6].vy);
+        setXY3(tri_273, screenPts[2].vx, screenPts[2].vy, screenPts[7].vx, screenPts[7].vy, screenPts[3].vx, screenPts[3].vy);
+        
+        POLY_GT3* tris[4] = {tri_014, tri_052, tri_136, tri_273};
+        for(int i = 0; i < 4; i++) {
+            setPolyGT3(tris[i]);
+            tris[i]->clut = clut;
+            tris[i]->tpage = tpage;
+        }
+        
+        tri_014->u0 = uv1->vx; tri_014->v0 = uv1->vy;
+        tri_014->u1 = uv0->vx; tri_014->v1 = uv0->vy;
+        tri_014->u2 = uv4.vx;  tri_014->v2 = uv4.vy;
+        
+        tri_052->u0 = uv1->vx; tri_052->v0 = uv1->vy;
+        tri_052->u1 = uv5.vx;  tri_052->v1 = uv5.vy;
+        tri_052->u2 = uv2->vx; tri_052->v2 = uv2->vy;
+        
+        tri_136->u0 = uv0->vx; tri_136->v0 = uv0->vy;
+        tri_136->u1 = uv3->vx; tri_136->v1 = uv3->vy;
+        tri_136->u2 = uv6.vx;  tri_136->v2 = uv6.vy;
+        
+        tri_273->u0 = uv2->vx; tri_273->v0 = uv2->vy;
+        tri_273->u1 = uv7.vx;  tri_273->v1 = uv7.vy;
+        tri_273->u2 = uv3->vx; tri_273->v2 = uv3->vy;
+        
+        setRGB0(tri_014, out_colors[0].r, out_colors[0].g, out_colors[0].b);
+        setRGB1(tri_014, out_colors[1].r, out_colors[1].g, out_colors[1].b);
+        setRGB2(tri_014, out_colors[4].r, out_colors[4].g, out_colors[4].b);
+        
+        setRGB0(tri_052, out_colors[0].r, out_colors[0].g, out_colors[0].b);
+        setRGB1(tri_052, out_colors[5].r, out_colors[5].g, out_colors[5].b);
+        setRGB2(tri_052, out_colors[2].r, out_colors[2].g, out_colors[2].b);
+        
+        setRGB0(tri_136, out_colors[1].r, out_colors[1].g, out_colors[1].b);
+        setRGB1(tri_136, out_colors[3].r, out_colors[3].g, out_colors[3].b);
+        setRGB2(tri_136, out_colors[6].r, out_colors[6].g, out_colors[6].b);
+        
+        setRGB0(tri_273, out_colors[2].r, out_colors[2].g, out_colors[2].b);
+        setRGB1(tri_273, out_colors[7].r, out_colors[7].g, out_colors[7].b);
+        setRGB2(tri_273, out_colors[3].r, out_colors[3].g, out_colors[3].b);
+        
+        addPrim(orderingTable + p, tri_014);
+        addPrim(orderingTable + p, tri_052);
+        addPrim(orderingTable + p, tri_136);
+        addPrim(orderingTable + p, tri_273);
     }
     graphics->NextPrimitive((uint8_t*)next_primitive);
 }
