@@ -274,7 +274,7 @@ int main()
     // Main loop
     while (1)
     {
-
+        //printf("hello world!\n");
         // Set pad buffer data to pad pointer
         pad = (PADTYPE *)&pad_buff[0][0];
 

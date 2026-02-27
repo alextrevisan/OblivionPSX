@@ -734,8 +734,8 @@ public:
 
         fps_measure++;
         // Wait for GPU to finish drawing and vertical retrace
-        DrawSync( 0 );
-        VSync( 0 );
+        //DrawSync( 0 );
+        //VSync( 0 );
 
         // Swap buffers
         db_active ^= 1;
